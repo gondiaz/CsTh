@@ -1,0 +1,2 @@
+#!/usr/bin/bash
+export PYTHONPATH=$CSTHDIR:$KRCALIB:$ICDIR:$PYTHONPATH
