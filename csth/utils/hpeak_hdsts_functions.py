@@ -105,10 +105,15 @@ def hdst_slice_table(etab, hits):
         q0ij[selnoq]                         = 1.
         x0ij                                 = hits.X[hsel]
         x0ij[selnoq]                         = hits.Xpeak[hsel].values[selnoq]
-        stab.x0   [sindex: sindex + nslices] = np.array([np.sum(q0ij[sel]*x0ij[sel]) for sel in selslices])/q0i
+        x0i                                  = np.array([np.sum(q0ij[sel]*x0ij[sel]) for sel in selslices])/q0i
+        stab.x0   [sindex: sindex + nslices] = x0i
         y0ij                                 = hits.Y[hsel]
         y0ij[selnoq]                         = hits.Ypeak[hsel].values[selnoq]
-        stab.y0   [sindex: sindex + nslices] = np.array([np.sum(q0ij[sel]*y0ij[sel]) for sel in selslices])/q0i
+        y0i                                  = np.array([np.sum(q0ij[sel]*y0ij[sel]) for sel in selslices])/q0i
+        stab.y0   [sindex: sindex + nslices] = y0i
+        r0ij                                 = np.sqrt(x0ij*x0ij + y0ij*y0ij)
+        rmaxi                                = np.array([np.sum(r0ij[sel]) for sel in selslices])
+        stab.rmax [sindex: sindex + nslices] = rmaxi
 
     return stab
 
@@ -240,7 +245,10 @@ def hdst_update_tables(etab, stab, htab):
         etab.x  [eindex] = np.sum(xi*ei)/ee
         etab.y  [eindex] = np.sum(yi*ei)/ee
         z0i              = stab.z0 [ssel]
-        etab.z [eindex]  = np.sum(z0i*ei)/ee
+        etab.z  [eindex] = np.sum(z0i*ei)/ee
+
+        # store the maxium hit radius
+        etab.rmax [eindex] = np.max(stab.rmax[ssel])
 
     return etab, stab, htab
 

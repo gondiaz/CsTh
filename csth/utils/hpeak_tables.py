@@ -10,19 +10,19 @@ import pandas            as pd
 EventList = collections.namedtuple('EventList', ['event', 'peak'])
 
 etable_names = ['event', 'peak', 'nslices', 'nhits', 'noqhits',
-                'sid', 'hid', 'time', 's1e', 'xym',
+                'sid', 'hid', 'time', 's1e', 'rmax',
                 'x0', 'y0', 'z0', 'q0', 'e0',
                 'x' , 'y' , 'z' , 'q' , 'e' ]
 
 edf_names    = ['event', 'peak', 'nslices', 'nhits', 'noqhits',
-                'time', 's1e', 'xym',
+                'time', 's1e', 'rmax',
                 'x0', 'y0', 'z0', 'q0', 'e0',
                 'x', 'y', 'z', 'q', 'e']
 
 ETable = collections.namedtuple('ETable', etable_names)
 
 stable_names = ['event', 'peak', 'slice', 'nhits',
-                'xym',
+                'rmax',
                 'x0', 'y0', 'z0', 'q0', 'e0',
                 'x' , 'y'       , 'q' , 'e' ]
 
