@@ -10,12 +10,12 @@ import pandas            as pd
 EventList = collections.namedtuple('EventList', ['event', 'peak'])
 
 etable_names = ['event', 'peak', 'nslices', 'nhits', 'noqhits',
-                'sid', 'hid', 'time', 's1e', 'rmax',
+                'sid', 'hid', 'time', 's1e', 't0', 'rmax',
                 'x0', 'y0', 'z0', 'q0', 'e0',
                 'x' , 'y' , 'z' , 'q' , 'e' ]
 
 edf_names    = ['event', 'peak', 'nslices', 'nhits', 'noqhits',
-                'time', 's1e', 'rmax',
+                'time', 's1e', 't0', 'rmax',
                 'x0', 'y0', 'z0', 'q0', 'e0',
                 'x', 'y', 'z', 'q', 'e']
 
@@ -44,13 +44,13 @@ def _table(size, nint, ntot):
     return items
 
 def create_event_table(size):
-    return ETable(*_table(size, 7, 20))
+    return ETable(*_table(size, 7, len(etable_names)))
 
 def create_slice_table(size):
-    return STable(*_table(size, 4, 14))
+    return STable(*_table(size, 4, len(stable_names)))
 
 def create_hit_table(size):
-    return HTable(*_table(size, 4, 11))
+    return HTable(*_table(size, 4, len(htable_names)))
 
 def df_from_table(tab, names):
     df = {}
@@ -68,9 +68,25 @@ def df_from_htable  (tab):
     return df_from_table(tab, htable_names)
 
 
-#------------------------------------
-#   Utilities for slices
-#------------------------------------
+#--------------------------------------------
+#   Utilities for selection of slices or sipms
+#--------------------------------------------
+
+def selection_slices(nzs, nsipms):
+    def _slice(i):
+        sx = np.array(nsipms*nzs*[False])
+        for k in range(nsipms):
+            sx[k*nzs+i] = True
+        return sx
+    return [_slice(i) for i in range(nzs)]
+
+def selection_sipms(nzs, nsipms):
+    def _slice(i):
+        sx = np.array(nsipms*nzs*[False])
+        for k in range(nzs):
+            sx[i*nzs+k] = True
+        return sx
+    return [_slice(i) for i in range(nsipms)]
 
 def selection_slices_by_z(zij):
     zi = np.unique(zij)
