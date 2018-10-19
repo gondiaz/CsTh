@@ -34,7 +34,8 @@ def event_list(pmaps, q0min = Q0MIN, verbose = False):
     #print(' number of selected events ', len(evts))
     npks = [len(np.unique(s2.peak[s2.event == evt])) for evt in evts]
 
-    """ievts, ipks, islices, ihits = [], [], [], []
+    """
+    ievts, ipks, islices, ihits = [], [], [], []
     for i, evt in enumerate(evts):
         for ipk in range(npks[i]):
             ssel     = (s2.event == evt) & (s2.peak == ipk)
@@ -47,6 +48,7 @@ def event_list(pmaps, q0min = Q0MIN, verbose = False):
                 islices.append(nslices)
                 ihits  .append(nhits)
     """
+
     #print(' event  selected '    , len(set(evts)))
     #print(' peaks  selected '    , np.sum(npks))
     #print(' size of slice table ', np.sum(islices))
@@ -81,14 +83,18 @@ def event_table(evtlist, pmaps, q0min = Q0MIN):
             etab.nslices[eindex] = nslices
             etab.sid[eindex]     = sindex
             etab.e0[eindex]      = np.sum(s2.ene[ssel])
-            hsel                 =  (s2i.event == evt) & (s2i.peak == ipk) & (s2i.ene  > q0min)
-            etab.q0[eindex]      = np.sum(s2i.ene[hsel])
-            nhits                = int(np.sum(hsel))
-            etab.nhits[eindex]   = nhits
             hsel                 = (s2i.event == evt) & (s2i.peak == ipk)
-            etab.noqhits[eindex] = int(np.sum(hsel)) - nhits
+            ntotal_hits          = np.sum(hsel)
+            q0ij                 = s2i.ene[hsel]
+            qsel                 = q0ij > q0min
+            etab.q0[eindex]      = np.sum(q0ij[hsel])
+            nhits                = int(np.sum(qsel))
+            etab.nhits[eindex]   = nhits
+            etab.noqhits[eindex] = ntotal_hits - nhits
             etab.hid[eindex]     = hindex
-#        etab.nsipms[eindex]  = int(nhits/nslices)
+            #print('event, pk ', evt, ipk)
+            #print('nslices, nhits', nslices, nhits)
+    #        etab.nsipms[eindex]  = int(nhits/nslices)
             eindex              += 1
             sindex              += nslices
             hindex              += nhits
@@ -96,7 +102,7 @@ def event_table(evtlist, pmaps, q0min = Q0MIN):
     return etab
 
 
-def slice_table(etab, pmaps, q0min = Q0MIN, vdrift = VDRIFT):
+def slice_table(etab, pmaps, vdrift = VDRIFT):
 
     s2, s2i = pmaps.s2, pmaps.s2i
 
@@ -143,13 +149,16 @@ def hit_table(etab, stab, pmaps, xpos, ypos, q0min = Q0MIN):
         sindex, nslices = etab.sid[i]  , etab.nslices[i]
         hindex, nhits   = etab.hid[i]  , etab.nhits[i]
         #nsipms = int(nhits/nslices)
-        #print('evt ', evt)
-        #print('nslices, nsipms ' , nslices, nsipms)
-        #print('hindex,  nhits ', hindex, nhits)
+        #print('evt, pk ', evt, pk)
+        #print('nslices, nhits ' , nslices, nhits)
+        #print('sindex,  hindex ', sindex,  hindex)
 
         # selections
-        ssel                              = np.logical_and(stab.event == evt, stab.peak == pk)
-        hsel                              = np.logical_and(s2i.event == evt, s2i.peak == pk)
+        ssel       =  (stab.event == evt) & (stab.peak == pk)
+        hsel       =  (s2i.event == evt)  & (s2i.peak == pk)
+        qsel       =  (s2i.event == evt)  & (s2i.peak == pk) & (s2i.ene > q0min)
+        #print('nslice, ntotal hits, nhits', np.sum(ssel), np.sum(hsel), np.sum(qsel))
+
 
         # set the slices and the zs to the hits
         zi                                = stab.z0[ssel]
@@ -297,7 +306,7 @@ def hpeaks_dfs(pmaps, xpos, ypos, calibrate, q0min = Q0MIN, vdrift = VDRIFT):
 
     etab  = event_table(elist, pmaps, q0min)
 
-    stab  = slice_table(etab, pmaps, q0min)
+    stab  = slice_table(etab, pmaps, vdrift)
 
     htab  = hit_table(etab, stab, pmaps, xpos, ypos, q0min)
 

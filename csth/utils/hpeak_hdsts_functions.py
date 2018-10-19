@@ -15,56 +15,58 @@ import csth .utils.hpeak_tables            as hptab
 #-----------------------------------
 
 
-def hdst_event_list(hits):
+def event_list(hits):
     evts = np.unique(hits.event)
     #print(' number of events ', len(evts))
     npks = [len(np.unique(hits.npeak[hits.event == evt])) for evt in evts]
 
-    ievts, ipks = [], []
+    """ievts, ipks = [], []
     for i, evt in enumerate(evts):
         for ipk in range(npks[i]):
             hsel  = np.logical_and(hits.event == evt, hits.npeak == ipk)
             nhits = int(np.sum(hsel))
             if (nhits > 0):
                 ievts.append(evt); ipks.append(ipk)
-    return hptab.EventList(ievts, ipks)
+                """
+    return hptab.EventList(evts, npks)
 
 
-def hdst_event_table(elist, hits):
+def event_table(elist, hits):
 
-    evts, pks = elist.event, elist.peak
+    evts, npks = elist.event, elist.peak
 
-    size = int(len(pks))
+    size = int(np.sum(npks))
 
     etab = hptab.create_event_table(size)
 
     eindex, sindex, hindex = 0, 0, 0
-    for evt, ipk in zip(evts, pks):
-        etab.event  [eindex] = int(evt)
-        etab.peak   [eindex] = int(ipk)
-        etab.s1e    [eindex] = 1.
-        hsel                 = np.logical_and(hits.event == evt, hits.npeak == ipk)
-        etab.time   [eindex] = np.unique(hits.time [hsel])[0]
-        etab.x0     [eindex] = np.unique(hits.Xpeak[hsel])[0]
-        etab.y0     [eindex] = np.unique(hits.Ypeak[hsel])[0]
-        etab.nslices[eindex] = len(np.unique(hits.Z[hsel]))
-        etab.sid    [eindex] = sindex
-        nhits                = int(np.sum(hsel))
-        etab.nhits  [eindex] = nhits
-        etab.hid    [eindex] = hindex
-        zij                  = hits.Z[hsel]
-        nslices              = len(np.unique(zij))
-        e0ij                 = hits.E[hsel]
-        e0                   = np.sum(e0ij)
-        z                    = np.sum(e0ij*zij)/e0
-        etab.e0     [eindex] = e0
-        etab.z0     [eindex] = z
-        q0ij                 = hits.Q[hsel]
-        etab.noqhits[eindex] = np.sum(q0ij <= 0.)
-        etab.q0     [eindex] = np.sum(q0ij[q0ij >0])
-        eindex              += 1
-        sindex              += nslices
-        hindex              += nhits
+    for evt, npk in zip(evts, npks):
+        for ipk in range(npk):
+            etab.event  [eindex] = int(evt)
+            etab.peak   [eindex] = int(ipk)
+            etab.s1e    [eindex] = 1.
+            hsel                 = np.logical_and(hits.event == evt, hits.npeak == ipk)
+            etab.time   [eindex] = np.unique(hits.time [hsel])[0]
+            etab.x0     [eindex] = np.unique(hits.Xpeak[hsel])[0]
+            etab.y0     [eindex] = np.unique(hits.Ypeak[hsel])[0]
+            etab.nslices[eindex] = len(np.unique(hits.Z[hsel]))
+            etab.sid    [eindex] = sindex
+            nhits                = int(np.sum(hsel))
+            etab.nhits  [eindex] = nhits
+            etab.hid    [eindex] = hindex
+            zij                  = hits.Z[hsel]
+            nslices              = len(np.unique(zij))
+            e0ij                 = hits.E[hsel]
+            e0                   = np.sum(e0ij)
+            z                    = np.sum(e0ij*zij)/e0
+            etab.e0     [eindex] = e0
+            etab.z0     [eindex] = z
+            q0ij                 = hits.Q[hsel]
+            etab.noqhits[eindex] = np.sum(q0ij <= 0.)
+            etab.q0     [eindex] = np.sum(q0ij[q0ij >0])
+            eindex              += 1
+            sindex              += nslices
+            hindex              += nhits
 
     return etab
 
@@ -72,7 +74,7 @@ def hdst_event_table(elist, hits):
 #   Slices table
 #---------------------------------
 
-def hdst_slice_table(etab, hits):
+def slice_table(etab, hits):
 
     nevts =  len(etab.event)
     size  = np.sum(etab.nslices)
@@ -122,7 +124,7 @@ def hdst_slice_table(etab, hits):
 #-----------------------------
 
 
-def hdst_hit_table(etab, hits):
+def hit_table(etab, hits):
 
     nevts =  len(etab.event)
 
@@ -169,7 +171,7 @@ def hdst_hit_table(etab, hits):
 #-----------------------------
 
 
-def hdst_calibrate_hits(htab, calibrate):
+def calibrate_hits(htab, calibrate):
 
     x  = htab.x0
     y  = htab.y0
@@ -191,7 +193,7 @@ def hdst_calibrate_hits(htab, calibrate):
 #   Update the tables
 #----------------------------------------
 
-def hdst_update_tables(etab, stab, htab):
+def update_tables(etab, stab, htab):
 
     evts = etab.event
 
@@ -257,19 +259,19 @@ def hdst_update_tables(etab, stab, htab):
 #------------------------
 
 
-def hdst_convert_to_dfs(hits, calibrate):
+def hpeaks_dfs(hits, calibrate):
 
-    elist = hdst_event_list(hits)
+    elist = event_list(hits)
 
-    etab  = hdst_event_table(elist, hits)
+    etab  = event_table(elist, hits)
 
-    stab  = hdst_slice_table(etab, hits)
+    stab  = slice_table(etab, hits)
 
-    htab  = hdst_hit_table(etab, hits)
+    htab  = hit_table(etab, hits)
 
-    htab  = hdst_calibrate_hits(htab, calibrate)
+    htab  = calibrate_hits(htab, calibrate)
 
-    etab, stab, htab = hdst_update_tables(etab, stab, htab)
+    etab, stab, htab = update_tables(etab, stab, htab)
 
     edf = hptab.df_from_etable(etab)
 
