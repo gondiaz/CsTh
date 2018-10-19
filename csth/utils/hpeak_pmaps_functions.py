@@ -23,7 +23,7 @@ import csth.utils.pmaps_functions          as pmf
 Q0MIN =  6. # pes
 VDRIFT = 1. # mm/us
 
-def event_list(pmaps, q0min = Q0MIN):
+def event_list(pmaps, q0min = Q0MIN, verbose = False):
 
     s1, s2, s2i = pmaps.s1, pmaps.s2, pmaps.s2i
 
@@ -34,25 +34,32 @@ def event_list(pmaps, q0min = Q0MIN):
     #print(' number of selected events ', len(evts))
     npks = [len(np.unique(s2.peak[s2.event == evt])) for evt in evts]
 
-    ievts, ipks, nslices, nhits = [], [], [], []
+    """ievts, ipks, islices, ihits = [], [], [], []
     for i, evt in enumerate(evts):
         for ipk in range(npks[i]):
             ssel     = (s2.event == evt) & (s2.peak == ipk)
             nslices  = int(np.sum(ssel))
             hsel  =  (s2i.event == evt) & (s2i.peak == ipk) & (s2i.ene > q0min)
             nhits = int(np.sum(hsel))
-            if (nslices > 0 and nhits > 0):
-                ievts.append(evt)
-                ipks .append(ipk)
-    return hptab.EventList(ievts, ipks)
+            if ((nslices > 0) & (nhits > 0)):
+                ievts  .append(evt)
+                ipks   .append(ipk)
+                islices.append(nslices)
+                ihits  .append(nhits)
+    """
+    #print(' event  selected '    , len(set(evts)))
+    #print(' peaks  selected '    , np.sum(npks))
+    #print(' size of slice table ', np.sum(islices))
+    #print(' size of hit table '  , np.sum(ihits))
+    return hptab.EventList(evts, npks)
 
 def event_table(evtlist, pmaps, q0min = Q0MIN):
 
     s1, s2, s2i = pmaps.s1, pmaps.s2, pmaps.s2i
 
-    evts, pks = evtlist.event, evtlist.peak
+    evts, npks = evtlist.event, evtlist.peak
 
-    size = int(len(pks))
+    size = int(np.sum(npks))
     #print(evts)
     #print(npks)
     #print(' number of selected peaks ', size)
@@ -60,30 +67,31 @@ def event_table(evtlist, pmaps, q0min = Q0MIN):
     etab = hptab.create_event_table(size)
 
     eindex, sindex, hindex = 0, 0, 0
-    for evt, ipk in zip(evts, pks):
-        etab.event[eindex]   = int(evt)
-        etab.peak [eindex]   = int(ipk)
-        tsel                 = (s1.event == evt) & (s1.peak == ipk)
-        s1e                  = np.sum(s1.ene[tsel])
-        etab.s1e[eindex]     = s1e
-        if (s1e <= 1.): s1e  = 1.
-        etab.t0[eindex]      = 1e-3*np.sum(s1.ene[tsel]*s1.time[tsel])/s1e
-        ssel                 = (s2.event == evt) & (s2.peak == ipk)
-        nslices              = int(np.sum(ssel))
-        etab.nslices[eindex] = nslices
-        etab.sid[eindex]     = sindex
-        etab.e0[eindex]      = np.sum(s2.ene[ssel])
-        hsel                 =  (s2i.event == evt) & (s2i.peak == ipk) & (s2i.ene  > q0min)
-        etab.q0[eindex]      = np.sum(s2i.ene[hsel])
-        nhits                = int(np.sum(hsel))
-        etab.nhits[eindex]   = nhits
-        hsel                 = (s2i.event == evt) & (s2i.peak == ipk)
-        etab.noqhits[eindex] = int(np.sum(hsel)) - nhits
-        etab.hid[eindex]     = hindex
+    for evt, npk in zip(evts, npks):
+        for ipk in range(npk):
+            etab.event[eindex]   = int(evt)
+            etab.peak [eindex]   = int(ipk)
+            tsel                 = (s1.event == evt) & (s1.peak == ipk)
+            s1e                  = np.sum(s1.ene[tsel])
+            etab.s1e[eindex]     = s1e
+            if (s1e <= 1.): s1e  = 1.
+            etab.t0[eindex]      = 1e-3*np.sum(s1.ene[tsel]*s1.time[tsel])/s1e
+            ssel                 = (s2.event == evt) & (s2.peak == ipk)
+            nslices              = int(np.sum(ssel))
+            etab.nslices[eindex] = nslices
+            etab.sid[eindex]     = sindex
+            etab.e0[eindex]      = np.sum(s2.ene[ssel])
+            hsel                 =  (s2i.event == evt) & (s2i.peak == ipk) & (s2i.ene  > q0min)
+            etab.q0[eindex]      = np.sum(s2i.ene[hsel])
+            nhits                = int(np.sum(hsel))
+            etab.nhits[eindex]   = nhits
+            hsel                 = (s2i.event == evt) & (s2i.peak == ipk)
+            etab.noqhits[eindex] = int(np.sum(hsel)) - nhits
+            etab.hid[eindex]     = hindex
 #        etab.nsipms[eindex]  = int(nhits/nslices)
-        eindex              += 1
-        sindex              += nslices
-        hindex              += nhits
+            eindex              += 1
+            sindex              += nslices
+            hindex              += nhits
 
     return etab
 
@@ -307,3 +315,166 @@ def hpeaks_dfs(pmaps, xpos, ypos, calibrate, q0min = Q0MIN, vdrift = VDRIFT):
     #edf, sdf, hdf    = convert_to_hpeaks_dfs(etab, stab, htab)
 
     return edf, sdf, hdf
+
+
+#-------------------------------------------------
+# Fast version
+#-------------------------------------------------
+
+
+def event_table_fast(pmaps, xpos, ypos, calibrate, q0min = Q0MIN, vdrift = VDRIFT):
+
+
+    elist = event_list(pmaps, q0min = q0min)
+
+    evts, npks  = elist
+    s1, s2, s2i = pmaps.s1, pmaps.s2, pmaps.s2i
+
+    size = int(np.sum(npks))
+    etab = hptab.create_event_table(size)
+
+    print('total number of peaks ', size)
+
+    xtime = np.zeros(size)
+
+    eindex = 0
+    for evt, npk  in zip(evts, npks):
+        for ipk in range(npk):
+
+            #xtinit = time.time()
+
+            etab.event[eindex] = evt
+            etab.peak [eindex] = ipk
+
+            # selections
+            tsel                 = (s1.event == evt)  & (s1.peak == 0)
+            ssel                 = (s2.event == evt)  & (s2.peak == ipk)
+            hsel                 = (s2i.event == evt) & (s2i.peak == ipk)
+            qsel                 = s2i.ene[hsel] > q0min
+
+            nslices = int(np.sum(ssel))
+            nhits   = int(np.sum(qsel))
+            noqhits = int(np.sum(hsel))-nhits
+            etab.nslices[eindex] = nslices
+            etab.nhits  [eindex] = nhits
+            etab.noqhits[eindex] = noqhits
+            if (nslices <= 0 or nhits <= 0): continue
+
+            # s1 information
+            s1e                  = np.sum(s1.ene[tsel])
+            etab.s1e[eindex]     = s1e
+            #print('s1e ', s1e)
+
+            if (s1e <= 1.): s1e  = 1.
+            t0                   = 1e-3*np.sum(s1.ene[tsel]*s1.time[tsel])/s1e
+            etab.t0[eindex]      = t0
+            #print('t0 ', t0)
+
+            # z0s and index-slice in slices
+            z0i                  = vdrift*(1.e-3*s2.time[ssel].values-t0)
+            #print('z0i', len(z0i), z0i)
+
+            ntotal_hits          = int(np.sum(hsel))
+            ij                   = np.zeros(ntotal_hits)
+            z0ij                 = np.zeros(ntotal_hits)
+            nsipms               = int(ntotal_hits/nslices)
+            selslices            = hptab.selection_slices(nslices, nsipms)
+            for k, kslice in enumerate(selslices):
+                z0ij[kslice] = z0i[k]
+                ij [kslice]  = k
+
+            # get the x, y positions and charge of the siPMs
+            sipm                 = s2i.nsipm[hsel].values
+            q0ij                 = s2i.ene  [hsel].values
+
+            e0ij                 = np.ones(nhits)
+            q0ij                 = q0ij[qsel]
+            x0ij                 = xpos[sipm[qsel]]
+            y0ij                 = ypos[sipm[qsel]]
+            z0ij                 = z0ij[qsel]
+            ij                   = ij  [qsel]
+
+            # calibrate the SiPMs
+            #print('x0', len(x0ij), x0ij, '\n y0', len(y0ij), y0ij, '\n z0', len(z0ij), z0ij)
+            #print('e0', len(e0ij), e0ij, '\n q0', len(q0ij), q0ij)
+            #print('slice', len(ij), ij)
+            eij, qij             = calibrate(x0ij, y0ij, z0ij, None, e0ij, q0ij)
+            #print('q ', len(qij), qij)
+            #print('e ', len(eij), eij)
+
+            # compute the q0i (total charge per slice)
+            selslices            = hptab.selection_slices_by_slice(ij, nslices)
+
+            qi                   = np.array([np.sum(qij[sel]) for sel in selslices])
+            q0                   = np.sum(q0ij)
+            qq                   = np.sum(qi)
+            etab.q0[eindex]      = q0
+            etab.q [eindex]      = qq
+            #print('qi ', qi)
+            #print('q  ', qq)
+            #print('q0 ', q0)
+            qi [qi <= 1.]        = 1.
+
+            # corrected energy per hit
+            e0i  = s2.ene[ssel].values
+            e0   = np.sum(e0i)
+            #print('e0i ', e0i)
+            #print('e0  ', e0)
+            etab.e0 [eindex]     = e0
+            for k, kslice in enumerate(selslices):
+                eij [kslice]     = eij[kslice] * qij [kslice]*e0i[k]/qi [k]
+
+            # compute the energy per slice and the average energy correction per slice
+            # to apply to the slices with no charge
+            ei             = np.array([np.sum(eij[sel]) for sel in selslices])
+            e0i [e0i <= 1] = 1.
+            fi             = ei/e0i
+            selnoq         = fi <= 0.
+            fmed           = np.mean(fi[~selnoq])
+            ei [selnoq]    = fmed * e0i [selnoq]
+            #print('ei'  , ei)
+
+            ee = np.sum(ei)
+            etab.e[eindex] = ee
+            #print('e'   , ee)
+
+            # compute the average position
+            if (ee <= 1.): ee = 1.
+            z     = np.sum(z0i*ei) /ee
+            eeave                  = np.sum(eij)
+            if (eeave <=1.): eeave = 1.
+            x     = np.sum(x0ij*eij)/eeave
+            y     = np.sum(y0ij*eij)/eeave
+            #print('x, y, z ', x, y, z)
+
+            etab.x[eindex]    = x
+            etab.y[eindex]    = y
+            etab.z[eindex]    = z
+
+            if (e0 <= 1.): e0 = 1.
+            z0    = np.sum(z0i*e0i)/e0
+            q0ave = np.sum(q0ij)
+            if (q0ave <= 1.): q0ave = 1.
+            x0    = np.sum(x0ij*q0ij)/q0ave
+            y0    = np.sum(y0ij*q0ij)/q0ave
+            #print('x0, y0, z0 ', x0, y0, z0)
+
+            etab.x0[eindex]    = x0
+            etab.y0[eindex]    = y0
+            etab.z0[eindex]    = z0
+
+            eindex            += 1
+            # xtend = time.time()
+            # xtime[eindex-1] = xtend - xtinit
+            if (eindex % 250 == 0):
+                print('processed ', eindex, 'peaks')
+
+            #print('e0i', np.sum(e0i), e0i)
+            #print('ei' , np.sum(ei) , ei)
+            #print('e0, e', e0, ee, ee/e0)
+
+            #print('q'  , np.sum(qi) , qi)
+            #print('q0, q', q0, qq, qq/q0)
+
+    edf = hptab.df_from_etable(etab)
+    return edf
