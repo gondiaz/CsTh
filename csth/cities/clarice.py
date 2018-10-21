@@ -104,12 +104,21 @@ def get_files(i0, i1):
     return input_files, output_filename
 """
 
+def _partition(filename):
+    words = filename.split('_')
+    partition = int(words[1])
+    return partition
+
+
 def _clarice_pmaps(file, xpos, ypos, calibrate, output_filename):
     try:
-        pmaps = pmapsf.get_pmaps(file, '')
+        #pmaps = pmapsf.get_pmaps(file, '')
+        pmaps   = pmapsf.get_pmaps(file, '')
+        runinfo = load_dst(file, 'Run', 'events')
     except:
         return 0., 0.
-    edf = hppmap.events_summary(pmaps, xpos, ypos, calibrate)
+    partition = _partition(file)
+    edf = hppmap.events_summary(pmaps, runinfo, partition, xpos, ypos, calibrate)
     edf .to_hdf(output_filename, key = 'edf'   , append = True)
     itot, iacc = len(set(pmaps.s1.event)), len(set(edf.event))
     return itot, iacc
@@ -119,7 +128,8 @@ def _clarice_pmaps_gd(file, xpos, ypos, calibrate, output_filename):
         pmaps = pmapsf.get_pmaps(file, mode, 'gd')
     except:
         return 0., 0.
-    edf = hppmap.events_summary(pmaps, xpos, ypos, calibrate)
+    partition = _partition(file)
+    edf = hppmap.events_summary(pmaps, partition, xpos, ypos, calibrate)
     edf .to_hdf(output_filename, key = 'edf'   , append = True)
     itot, iacc = len(set(pmaps.s1.event)), len(set(edf.event))
     return itot, iacc
@@ -133,7 +143,8 @@ def _clarice_hdsts(file, calibrate, output_filename):
     except:
         print('not loaded file ', file)
         return 0., 0.
-    edf = hphdst.events_summary(hits, calibrate)
+    partition = _partition(file)
+    edf = hphdst.events_summary(hits, partition, calibrate)
     edf .to_hdf(output_filename, key = 'edf'   , append = True)
     itot, iacc = len(set(hits.event)), len(set(edf.event))
     return itot, iacc

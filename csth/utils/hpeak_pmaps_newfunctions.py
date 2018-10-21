@@ -13,7 +13,7 @@ import csth .utils.hpeak_tables            as hptab
 Q0MIN  = 6.
 VDRIFT = 1.
 
-def events_summary(pmaps, xpos, ypos, calibrate, q0min = Q0MIN, vdrift = VDRIFT):
+def events_summary(pmaps, runinfo, loc, xpos, ypos, calibrate, q0min = Q0MIN, vdrift = VDRIFT):
 
     elist = event_list(pmaps)
     evts, npks  = elist
@@ -24,7 +24,7 @@ def events_summary(pmaps, xpos, ypos, calibrate, q0min = Q0MIN, vdrift = VDRIFT)
     eindex = 0
     for evt, npk  in zip(evts, npks):
         for ipk in range(npk):
-            esum = event_summary(pmaps, evt, ipk, calibrate, xpos, ypos, q0min, vdrift)
+            esum = event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos, q0min, vdrift)
 
             hptab._etable_set(etab, esum, eindex)
             eindex += 1
@@ -45,57 +45,65 @@ def event_list(pmaps):
     return hptab.EventList(evts, npks)
 
 
-def event_summary(pmaps, evt, ipk, calibrate, xpos, ypos, q0min = Q0MIN, vdrift = VDRIFT):
+def event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos, q0min = Q0MIN, vdrift = VDRIFT):
 
     s1, s2, s2i = pmaps.s1, pmaps.s2, pmaps.s2i
 
+    nslices, nhits, noqhits = 0, 0, 0
+    time, s1e, t0           = 0., 0., 0.
+    rmax, zmin, zmax        = 0., 0., 0.
+    x0, y0, z0, q0, e0      = 0., 0., 0., 0., 0.
+    x, y, z, q, e           = 0., 0., 0., 0., 0.
+
+    def _result():
+        esum = hptab.ETuple(evt, ipk, loc, nslices, nhits, noqhits,
+                            time, s1e, t0, rmax, zmin, zmax,
+                            x0, y0, z0, q0, e0,
+                            x, y, z, q, e)
+        #print(esum)
+        return esum
+
+
+    rsel                 = runinfo.evt_number == evt
     tsel                 = (s1.event == evt)  & (s1.peak == 0)
     ssel                 = (s2.event == evt)  & (s2.peak == ipk)
     hsel                 = (s2i.event == evt) & (s2i.peak == ipk)
 
-    time, s1e, t0          = event_s1_info(s1[tsel])
+    time, s1e, t0          = event_s1_info(s1[tsel], runinfo[rsel], evt)
 
     nslices, z0i, e0i       = event_slices(s2[ssel], t0, vdrift)
     if (nslices <= 0):
-        esum = hptab.ETuple(evt, ipk, nslices, 0, 0,
-                            0, 0, 0, 0,
-                            0, 0, 0, 0, 0,
-                            0, 0, 0, 0, 0)
-        return esum
+        return _result()
 
     nhits, noqhits, x0ij, y0ij, z0ij, q0ij = event_hits(s2i[hsel], z0i, xpos, ypos, q0min)
     if (nhits <= 0):
-        esum = hptab.ETuple(evt, ipk, nslices, nhits, noqhits,
-                                0, 0, 0, 0,
-                                0, 0, 0, 0, 0,
-                                0, 0, 0, 0, 0)
-        return esum
+        return _result()
 
     x0, y0, z0, q0, e0     = hptab.event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij)
 
     rmax                   = hptab.max_radius_hit(x0ij, y0ij)
 
+    zmin, zmax             = hptab.zrange(z0i)
+
     ei, qij, eij           = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate)
 
     x , y ,  z, q , e      = hptab.event_eqpoint(ei , z0i, x0ij, y0ij, eij)
 
-    esum = hptab.ETuple(evt, ipk, nslices, nhits, noqhits,
-                        time, s1e, t0, rmax,
-                        x0, y0, z0, q0, e0,
-                        x, y, z, q, e)
-    #print(esum)
-    return esum
+    enum = _result()
+    return enum
 
 
-def event_s1_info(s1):
+def event_s1_info(s1, runinfo, evt):
 
     s1e                  = np.sum(s1.ene)
     if (s1e <= 1.): s1e  = 1.
     t0                   = 1e-3*np.sum(s1.ene*s1.time)/s1e
+    time                 = runinfo.timestamp.values[0]
 
     #print('s1e ', s1e)
     #print('t0  ', t0)
-    return 0., s1e, t0
+    #print('time', time)
+    return time, s1e, t0
 
 def event_slices(s2, t0, vdrift = VDRIFT):
 
@@ -129,10 +137,10 @@ def event_hits(s2i, z0i, xpos, ypos, q0min = Q0MIN):
         z0ij[kslice] = z0i[k]
 
     # get the x, y positions and charge of the siPMs
-    qsel   = q0ij > q0min
-
-    nhits = np.sum(qsel)
-    noqhits = ntotal_hits - nhits
+    qsel    = q0ij > q0min
+    noqsel  = (q0ij > 0) & (q0ij <= q0min)
+    nhits   = np.sum(qsel)
+    noqhits = np.sum(noqsel)
     if (nhits <= 0):
         return nhits, noqhits, None, None, None, None
 

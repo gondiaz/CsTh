@@ -9,13 +9,14 @@ import pandas            as pd
 
 EventList = collections.namedtuple('EventList', ['event', 'peak'])
 
-etable_names = ['event', 'peak', 'nslices', 'nhits', 'noqhits',
-                'sid', 'hid', 'time', 's1e', 't0', 'rmax',
+etable_names = ['event', 'peak', 'loc', 'nslices', 'nhits', 'noqhits',
+                'sid', 'hid', 'time',
+                's1e', 't0', 'rmax', 'zmin', 'zmax',
                 'x0', 'y0', 'z0', 'q0', 'e0',
                 'x' , 'y' , 'z' , 'q' , 'e' ]
 
-edf_names    = ['event', 'peak', 'nslices', 'nhits', 'noqhits',
-                'time', 's1e', 't0', 'rmax',
+edf_names    = ['event', 'peak', 'loc', 'nslices', 'nhits', 'noqhits',
+                'time', 's1e', 't0', 'rmax', 'zmin', 'zmax',
                 'x0', 'y0', 'z0', 'q0', 'e0',
                 'x', 'y', 'z', 'q', 'e']
 
@@ -46,7 +47,7 @@ def _table(size, nint, ntot):
     return items
 
 def create_event_table(size):
-    return ETable(*_table(size, 7, len(etable_names)))
+    return ETable(*_table(size, 9, len(etable_names)))
 
 def create_slice_table(size):
     return STable(*_table(size, 4, len(stable_names)))
@@ -71,27 +72,8 @@ def df_from_htable  (tab):
 
 def _etable_set(etab, etup, eindex):
 
-    etab.event  [eindex] = etup.event
-    etab.peak   [eindex] = etup.peak
-    etab.nslices[eindex] = etup.nslices
-    etab.nhits  [eindex] = etup.nhits
-
-    etab.time   [eindex] = etup.time
-    etab.s1e    [eindex] = etup.s1e
-    etab.t0     [eindex] = etup.t0
-
-    etab.x0     [eindex] = etup.x0
-    etab.y0     [eindex] = etup.y0
-    etab.z0     [eindex] = etup.z0
-    etab.q0     [eindex] = etup.q0
-    etab.e0     [eindex] = etup.e0
-
-    etab.x      [eindex] = etup.x
-    etab.y      [eindex] = etup.y
-    etab.z      [eindex] = etup.z
-    etab.q      [eindex] = etup.q
-    etab.e      [eindex] = etup.e
-
+    for name in edf_names:
+        getattr(etab, name) [eindex] = getattr(etup, name)
     return
 
 def event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij):
@@ -146,6 +128,9 @@ def max_radius_hit(x0ij, y0ij):
     rmax = np.sqrt(rmax)
     #print('max radius ', rmax)
     return rmax
+
+def zrange(z0i):
+    return np.min(z0i), np.max(z0i)
 
 #--------------------------------------------
 #   Utilities for selection of slices or sipms
