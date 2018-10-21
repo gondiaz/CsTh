@@ -47,6 +47,7 @@ def arguments(args):
 
     input_type  = str(args[1])
     run_number  = int(args[2])
+
     if (input_type == 'pmaps'):
         mode  = ''
         file_trail = str(args[3])
@@ -73,14 +74,6 @@ def arguments(args):
         output_file      = os.path.expandvars(output_filename)
         return (run_number, input_files, output_file, input_type)
 
-    #if (city == 'pmaps_gd'):
-    #    mode    = 'gc'
-    #    input_file  = str(args[3])
-    #    output_file = str(args[4])
-    #    input_files = [os.path.expandvars(input_file),]
-    #    output_file =  os.path.expandvars(output_file)
-    #    return (run_number, input_files, output_filename, read_fun)
-
     if (input_type == 'pmaps_gd'):
         read_fun    = 'gd'
         file_head  = str(args[3])
@@ -93,16 +86,6 @@ def arguments(args):
         output_filename     = f"$IC_DATA/{run_number}/pmaps/edf_{file_head}_{run_number}_{iini}_{iend}.h5"
         output_file =  os.path.expandvars(output_filename)
         return (run_number, input_files, output_file, input_type)
-
-"""
-def get_files(i0, i1):
-    partitions          = ["{:04}".format(i) for i in range(i0, i1+1)]
-    input_filenames     = [f"$IC_DATA/{run_number}/pmaps/{file_head}_{par}_{file_trail}.h5" for par in partitions]
-    #input_filenames     = [f"$IC_DATA/{run_number}/pmaps/{file_par}.h5" for par in partitions]
-    input_files         = [os.path.expandvars(fi) for fi in input_filenames]
-    output_filename     = f"pkhits_{run_number}_{i0}_{i1-1}.h5"
-    return input_files, output_filename
-"""
 
 def _partition(filename):
     words = filename.split('_')
@@ -123,6 +106,7 @@ def _clarice_pmaps(file, xpos, ypos, calibrate, output_filename):
     itot, iacc = len(set(pmaps.s1.event)), len(set(edf.event))
     return itot, iacc
 
+
 def _clarice_pmaps_gd(file, xpos, ypos, calibrate, output_filename):
     try:
         pmaps = pmapsf.get_pmaps(file, mode, 'gd')
@@ -134,8 +118,9 @@ def _clarice_pmaps_gd(file, xpos, ypos, calibrate, output_filename):
     itot, iacc = len(set(pmaps.s1.event)), len(set(edf.event))
     return itot, iacc
 
+
 def _clarice_hdsts(file, calibrate, output_filename):
-    hits = load_dst(file,'RECO','Events')
+    hits = load_dst(file, 'RECO', 'Events')
     try:
         nevents = len(hits.event)
         #print('nevents ', nevents)
@@ -179,14 +164,12 @@ def clarice(input_type, run_number, input_filenames, output_filename):
         xtend = time.time()
         xtime[i] = xtend - xtinit
 
-
     f = 100.*naccepted /(1.*ntotal) if ntotal > 0 else 0.
     print('total events ', ntotal, ', accepted  ', naccepted, 'fraction (%)' , f)
     print('time per file ', np.mean(xtime), ' s')
     if (naccepted <= 1): naccepted = 1
     print('time per event', np.sum(xtime)/(1.*naccepted), 's')
-    #f = 100.*ngoodpeaks/(1.*npeaks) if npeaks > 0 else 0.
-    #print('total peaks  ', npeaks, ', good hits ', ngoodpeaks, 'fraction (%)', f)
+    return
 
 #-----------
 
