@@ -70,10 +70,39 @@ def df_from_stable(tab):
 def df_from_htable  (tab):
     return df_from_table(tab, htable_names)
 
-def _etable_set(etab, etup, eindex):
+def _etable_set(etable, etup, eindex):
 
-    for name in edf_names:
-        getattr(etab, name) [eindex] = getattr(etup, name)
+    #for name in edf_names:
+    #    getattr(etab, name) [eindex] = getattr(etup, name)
+
+    etable.event [eindex] = etup.event
+    etable.peak  [eindex] = etup.peak
+    etable.loc   [eindex] = etup.loc
+
+    etable.time [eindex] = etup.time
+    etable.s1e  [eindex] = etup.s1e
+    etable.t0   [eindex] = etup.t0
+
+    etable.nslices [eindex] = etup.nslices
+    etable.nhits   [eindex] = etup.nhits
+    etable.noqhits [eindex] = etup.noqhits
+
+    etable.rmax [eindex] = etup.rmax
+    etable.zmin [eindex] = etup.zmin
+    etable.zmax [eindex] = etup.zmax
+
+    etable.x0 [eindex] = etup.x0
+    etable.y0 [eindex] = etup.y0
+    etable.z0 [eindex] = etup.z0
+    etable.q0 [eindex] = etup.q0
+    etable.e0 [eindex] = etup.e0
+
+    etable.x [eindex] = etup.x
+    etable.y [eindex] = etup.y
+    etable.z [eindex] = etup.z
+    etable.q [eindex] = etup.q
+    etable.e [eindex] = etup.e
+
     return
 
 def event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij):
