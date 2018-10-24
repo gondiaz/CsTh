@@ -45,19 +45,20 @@ import csth.utils.hpeak_hdsts_newfunctions  as hphdst
 
 def arguments(args):
 
-    input_type  = str(args[1])
-    run_number  = int(args[2])
+    input_type   = str(args[1])
+    run_number   = int(args[2])
+    trigger_type = str(args[3])
 
     if (input_type == 'pmaps'):
         mode  = ''
-        file_trail = str(args[3])
-        iini       = int(args[4])
-        iend       = int(args[5])
+        file_trail = str(args[4])
+        iini       = int(args[5])
+        iend       = int(args[6])
         partitions       = ["{:04}".format(i) for i in range(iini, iend)]
-        input_filenames  = [f"$IC_DATA/{run_number}/pmaps/trigger2/pmaps_{par}_{run_number}_{file_trail}.h5" for par in partitions]
+        input_filenames  = [f"$IC_DATA/{run_number}/pmaps/{trigger_type}/pmaps_{par}_{run_number}_{file_trail}.h5" for par in partitions]
         #input_filenames     = [f"$IC_DATA/{run_number}/pmaps/{file_par}.h5" for par in partitions]
         input_files      = [os.path.expandvars(fi) for fi in input_filenames]
-        output_filename  = f"$IC_DATA/{run_number}/pmaps/edf_{run_number}_{iini}_{iend-1}.h5"
+        output_filename  = f"$IC_DATA/{run_number}/pmaps/edf_{run_number}_{iini}_{iend-1}_{trigger_type}.h5"
         output_file      = os.path.expandvars(output_filename)
         return (run_number, input_files, output_file, input_type)
 

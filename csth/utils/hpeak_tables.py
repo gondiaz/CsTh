@@ -9,13 +9,13 @@ import pandas            as pd
 
 EventList = collections.namedtuple('EventList', ['event', 'peak'])
 
-etable_names = ['event', 'peak', 'loc', 'nslices', 'nhits', 'noqhits',
+etable_names = ['event', 'peak', 'loc', 'nslices', 'nhits', 'noqslices', 'noqhits',
                 'sid', 'hid', 'time',
                 's1e', 't0', 'rmax', 'zmin', 'zmax',
                 'x0', 'y0', 'z0', 'q0', 'e0',
                 'x' , 'y' , 'z' , 'q' , 'e' ]
 
-edf_names    = ['event', 'peak', 'loc', 'nslices', 'nhits', 'noqhits',
+edf_names    = ['event', 'peak', 'loc', 'nslices', 'nhits', 'noqslices', 'noqhits',
                 'time', 's1e', 't0', 'rmax', 'zmin', 'zmax',
                 'x0', 'y0', 'z0', 'q0', 'e0',
                 'x', 'y', 'z', 'q', 'e']
@@ -47,7 +47,7 @@ def _table(size, nint, ntot):
     return items
 
 def create_event_table(size):
-    return ETable(*_table(size, 9, len(etable_names)))
+    return ETable(*_table(size, 10, len(etable_names)))
 
 def create_slice_table(size):
     return STable(*_table(size, 4, len(stable_names)))
@@ -72,8 +72,11 @@ def df_from_htable  (tab):
 
 def _etable_set(etable, etup, eindex):
 
-    #for name in edf_names:
-    #    getattr(etab, name) [eindex] = getattr(etup, name)
+    for name in edf_names:
+         getattr(etable, name) [eindex] = getattr(etup, name)
+    eindex += 1
+    return eindex
+    #return eindex+=1
 
     etable.event [eindex] = etup.event
     etable.peak  [eindex] = etup.peak
@@ -103,7 +106,8 @@ def _etable_set(etable, etup, eindex):
     etable.q [eindex] = etup.q
     etable.e [eindex] = etup.e
 
-    return
+    eindex += 1
+    return eindex
 
 def event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij):
 
@@ -139,7 +143,8 @@ def calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate):
     e0i [e0i <= 1] = 1.
     fi             = ei/e0i
     selnoq         = fi <= 0.
-    if (np.sum(selnoq) > 0):
+    noqslices      = np.sum(selnoq)
+    if (noqslices > 0):
         fmed           = np.mean(fi[~selnoq])
         ei [selnoq]    = fmed * e0i [selnoq]
 
@@ -148,7 +153,7 @@ def calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate):
     #print('eij ', len(eij), eij)
     #print('qij ', len(qij), qij)
 
-    return ei, eij, qij
+    return noqslices, ei, eij, qij
 
 
 def max_radius_hit(x0ij, y0ij):
