@@ -42,14 +42,15 @@ def event_list(hits):
 
 def event_summary(hits, evt, ipk, loc, calibrate, q0min = Q0MIN):
 
-    nslices, nhits, noqhits = 0, 0, 0
+    nslices, nhits          = 0, 0
+    noqslices, noqhits      = 0, 0
     time, s1e, t0           = 0., 0., 0.
     rmax, zmin, zmax        = 0., 0., 0.
     x0, y0, z0, q0, e0      = 0., 0., 0., 0., 0.
     x, y, z, q, e           = 0., 0., 0., 0., 0.
 
     def _result():
-        esum = hptab.ETuple(evt, ipk, loc, nslices, nhits, noqhits,
+        esum = hptab.ETuple(evt, ipk, loc, nslices, nhits, noqslices, noqhits,
                             time, s1e, t0, rmax, zmin, zmax,
                             x0, y0, z0, q0, e0,
                             x, y, z, q, e)
@@ -72,7 +73,7 @@ def event_summary(hits, evt, ipk, loc, calibrate, q0min = Q0MIN):
 
     zmin, zmax             = hptab.zrange(z0i)
 
-    ei, qij, eij           = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate)
+    noqslices, ei, qij, eij           = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate)
 
     x , y , z , q , e      = hptab.event_eqpoint(ei , z0i, x0ij, y0ij, eij)
 
