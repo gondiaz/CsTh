@@ -80,6 +80,21 @@ def event_summary(hits, evt, ipk, loc, calibrate, q0min = Q0MIN):
     esum = _result()
     return esum
 
+def get_event_hits(hits, evt, ipk, calibrate, q0min = Q0MIN):
+
+    nslices, z0i, e0i      = event_slices(hits)
+    if (nslices <= 0):
+        return None
+
+    nhits, noqhits, x0ij, y0ij, z0ij, q0ij = event_hits(hits, z0i, q0min)
+    if (nhits <= 0):
+        return None
+
+    noqslices, ei, qij, eij  = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate)
+
+    return x0ij, y0ij, z0ij, eij
+
+
 def event_s1_info(hits):
 
     s1e  = 0.

@@ -63,3 +63,22 @@ def graph_hits(hits, q0min = 0):
     plt.colorbar();
     plt.tight_layout()
     return
+
+def graph_event(x, y, z, ene, scale = 0.1, comment = ''):
+    c = hst.Canvas(2, 2)
+    from mpl_toolkits.mplot3d import Axes3D
+    fig = plt.gcf()
+    ax3D = fig.add_subplot(221, projection='3d')
+    p3d = ax3D.scatter(z, x, y, s=scale*ene, c=ene, alpha=0.4, marker='o')
+    ax3D.set_xlabel('z (mm)')
+    ax3D.set_ylabel('x (mm)')
+    ax3D.set_zlabel('y (mm)')
+    plt.title(comment)
+    hst.scatter(x, z, c=ene, s=scale*ene, alpha=0.2, canvas=c(2), cmap='jet', xylabels=('x (mm)', 'z (mm)'))
+    plt.colorbar();
+    hst.scatter(z, y, c=ene, s=scale*ene, alpha=0.2, canvas=c(3), cmap='jet', xylabels=('z (mm)', 'y (mm)'))
+    plt.colorbar();
+    hst.scatter(x, y, c=ene, s=scale*ene, alpha=0.2, canvas=c(4), cmap='jet', xylabels=('x (mm)', 'y (mm)'))
+    plt.colorbar();
+    plt.tight_layout()
+    return
