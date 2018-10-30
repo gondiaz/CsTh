@@ -88,7 +88,8 @@ def arguments(args):
         return (run_number, input_files, output_file, input_type)
 
 def _partition(filename):
-    words = filename.split('_')
+    fdir = filename.split('/')
+    words = fdir[-1].split('_')
     partition = int(words[1])
     return partition
 
@@ -210,7 +211,7 @@ if input_type == 'pmaps_gd':
     input_files =["{}/pmaps_{}_{}_{}.h5"  .format(input_directory, part, run_number, typo) for part in range(partlim[0], partlim[1]+1)]
     output_file ="{}/corrections_{}_{}.h5".format(output_directory, run_number, typo)
 
-else: continue
+#else: continue
     #JOSE ANGEL SHOULD MODIFY THIS
 
 
