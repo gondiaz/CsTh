@@ -19,7 +19,6 @@ from   invisible_cities.io.dst_io          import load_dst
 
 import krcal.dev.corrections               as corrections
 
-
 import csth.utils.pmaps_functions           as pmapsf
 import csth.utils.hpeak_pmaps_newfunctions  as hppmap
 import csth.utils.hpeak_hdsts_newfunctions  as hphdst
@@ -89,7 +88,8 @@ def arguments(args):
         return (run_number, input_files, output_file, input_type)
 
 def _partition(filename):
-    words = filename.split('_')
+    fdir = filename.split('/')
+    words = fdir[-1].split('_')
     partition = int(words[1])
     return partition
 
@@ -110,11 +110,12 @@ def _clarice_pmaps(file, xpos, ypos, calibrate, output_filename):
 
 def _clarice_pmaps_gd(file, xpos, ypos, calibrate, output_filename):
     try:
-        pmaps = pmapsf.get_pmaps(file, mode, 'gd')
+        pmaps   = pmapsf.get_pmaps(file, 'gd')
+        runinfo = pd.HDFStore(file)['/runinfo']
     except:
         return 0., 0.
     partition = _partition(file)
-    edf = hppmap.events_summary(pmaps, partition, xpos, ypos, calibrate)
+    edf = hppmap.events_summary(pmaps, runinfo, partition, xpos, ypos, calibrate)
     edf .to_hdf(output_filename, key = 'edf'   , append = True)
     itot, iacc = len(set(pmaps.s1.event)), len(set(edf.event))
     return itot, iacc
@@ -156,8 +157,8 @@ def clarice(input_type, run_number, input_filenames, output_filename):
         if (input_type == 'pmaps'):
             itot, iacc = _clarice_pmaps(file, sipms_xs, sipms_ys, calibrate, output_filename)
             ntotal += itot; naccepted += iacc
-        elif (input_type == 'pmaps'):
-            itot, iacc = _clarice_pmaps(file, sipms_xs, sipms_ys, calibrate, output_filename)
+        elif (input_type == 'pmaps_gd'):
+            itot, iacc = _clarice_pmaps_gd(file, sipms_xs, sipms_ys, calibrate, output_filename)
             ntotal += itot; naccepted += iacc
         elif (input_type == 'hdsts'):
             itot, iacc = _clarice_hdsts(file, calibrate, output_filename)
@@ -172,15 +173,53 @@ def clarice(input_type, run_number, input_filenames, output_filename):
     print('time per event', np.sum(xtime)/(1.*naccepted), 's')
     return
 
-#-----------
+#---------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------
 
-run_number, input_files, output_file, input_type = arguments(sys.argv)
+#run_number, input_files, output_file, input_type = arguments(sys.argv)
+
+#print(' ')
+#print(' CLARICE : ', run_number)
+#print(' type    : ', input_type)
+#print(' inputs  : ', len(input_files), 'file: ', input_files[0])
+#print(' output  : ', output_file)
+#print(' ')
+
+#CHANGE THE WAY INPUTS ARE INTRODUCED
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-it" , "--input-type"      , type=str , help="input data type (e.g. pmaps, hdsts, pmaps_gd )")
+parser.add_argument("-r"  , "--run-number"      , type=int , help="run number")
+parser.add_argument("-p"  , "--part-limits"     , type=int , help="partition limits", nargs=2)
+parser.add_argument("-id" , "--input-directory" , type=str , help="input directory")
+parser.add_argument("-od" , "--output-directory", type=str , help="output directory")
+parser.add_argument("-ty" , "--type"            , type=str , help="type of event (e.g. Cs, Tlds, Tlpk ...)")
+
+args = parser.parse_args(sys.argv[1:])
+
+input_type       = args.input_type
+run_number       = args.run_number
+partlim          = args.part_limits
+input_directory  = args.input_directory
+output_directory = args.output_directory
+typo             = args.type
+
+#Selected pmaps_gd
+if input_type == 'pmaps_gd':
+    input_files =["{}/pmaps_{}_{}_{}.h5"  .format(input_directory, part, run_number, typo) for part in range(partlim[0], partlim[1]+1)]
+    output_file ="{}/corrections_{}_{}.h5".format(output_directory, run_number, typo)
+
+#else: continue
+    #JOSE ANGEL SHOULD MODIFY THIS
+
 
 print(' ')
 print(' CLARICE : ', run_number)
-print(' type    : ', input_type)
-print(' inputs  : ', len(input_files), 'file: ', input_files[0])
-print(' output  : ', output_file)
+print(' input_type    : ', input_type)
+print(' number of input files  : ', len(input_files))
+print(' output file : ', output_file)
 print(' ')
 
 clarice(input_type, run_number, input_files, output_file)
