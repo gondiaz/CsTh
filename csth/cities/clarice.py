@@ -208,8 +208,11 @@ typo             = args.type
 
 #Selected pmaps_gd
 if input_type == 'pmaps_gd':
-    input_files =["{}/pmaps_{}_{}_{}.h5"  .format(input_directory, part, run_number, typo) for part in range(partlim[0], partlim[1]+1)]
-    output_file ="{}/corrections_{}_{}.h5".format(output_directory, run_number, typo)
+    input_filenames = ["{}/pmaps_{}_{}_{}.h5"  .format(input_directory, part, run_number, typo) for part in range(partlim[0], partlim[1]+1)]
+    input_files     = [os.path.expandvars(fi) for fi in input_filenames]
+
+    output_filename ="{}/corrections_{}_{}.h5".format(output_directory, run_number, typo)
+    output_file =  os.path.expandvars(output_filename)
 
 #else: continue
     #JOSE ANGEL SHOULD MODIFY THIS
