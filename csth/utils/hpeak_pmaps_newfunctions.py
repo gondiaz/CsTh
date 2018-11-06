@@ -9,11 +9,11 @@ import pandas            as pd
 import krcal.dev.corrections               as corrections
 import csth .utils.hpeak_tables            as hptab
 
-
 Q0MIN  = 6.
 VDRIFT = 1.
+CALQ   = True
 
-def events_summary(pmaps, runinfo, loc, xpos, ypos, calibrate, q0min = Q0MIN, vdrift = VDRIFT):
+def events_summary(pmaps, runinfo, loc, xpos, ypos, calibrate, q0min = Q0MIN, vdrift = VDRIFT, calq = CALQ):
 
     elist = event_list(pmaps)
     evts, npks  = elist
@@ -24,7 +24,7 @@ def events_summary(pmaps, runinfo, loc, xpos, ypos, calibrate, q0min = Q0MIN, vd
     eindex = 0
     for evt, npk  in zip(evts, npks):
         for ipk in range(npk):
-            esum = event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos, q0min, vdrift)
+            esum = event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos, q0min, vdrift, calq)
 
             eindex = hptab._etable_set(etab, esum, eindex)
 
@@ -44,7 +44,8 @@ def event_list(pmaps):
     return hptab.EventList(evts, npks)
 
 
-def event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos, q0min = Q0MIN, vdrift = VDRIFT):
+def event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos,
+                  q0min = Q0MIN, vdrift = VDRIFT, calq = CALQ):
 
     s1, s2, s2i = pmaps.s1, pmaps.s2, pmaps.s2i
 
@@ -84,15 +85,15 @@ def event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos, q0min = 
         #print(esum)
         return esum
 
-    x0, y0, z0, q0, e0     = hptab.event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij)
+    x0, y0, z0, q0, e0       = hptab.event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij)
 
-    rmax                   = hptab.max_radius_hit(x0ij, y0ij)
+    rmax                     = hptab.max_radius_hit(x0ij, y0ij)
 
-    zmin, zmax             = hptab.zrange(z0i)
+    zmin, zmax               = hptab.zrange(z0i)
 
-    noqslices, ei, qij, eij           = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate)
+    noqslices, ei, qij, eij  = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq)
 
-    x , y ,  z, q , e      = hptab.event_eqpoint(ei , z0i, x0ij, y0ij, eij)
+    x , y ,  z, q , e        = hptab.event_eqpoint(ei , z0i, x0ij, y0ij, eij)
 
     #enum = _result()
     esum = hptab.ETuple(evt, ipk, loc, nslices, nhits, noqslices, noqhits,
@@ -102,7 +103,7 @@ def event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos, q0min = 
     return esum
 
 
-def get_event_hits(pmaps, evt, ipk, calibrate, xpos, ypos, q0min = Q0MIN, vdrift = VDRIFT):
+def get_event_hits(pmaps, evt, ipk, calibrate, xpos, ypos, q0min = Q0MIN, vdrift = VDRIFT, calq = CALQ):
 
     s1, s2, s2i = pmaps.s1, pmaps.s2, pmaps.s2i
 
@@ -120,9 +121,9 @@ def get_event_hits(pmaps, evt, ipk, calibrate, xpos, ypos, q0min = Q0MIN, vdrift
     if (nhits <= 0):
         return None
 
-    noqslices, ei, qij, eij           = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate)
+    noqslices, ei, qij, eij           = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq)
 
-    return x0ij, y0ij, z0ij, eij
+    return x0ij, y0ij, z0ij, eij, qij
 
 
 def event_s1_info(s1):
@@ -193,5 +194,3 @@ def event_hits(s2i, z0i, xpos, ypos, q0min = Q0MIN):
     #print('x0ij', len(x0ij), x0ij, '\n y0ij', len(y0ij), y0ij, '\n z0ij', len(z0ij), z0ij)
     #print('q0ij', len(q0ij), q0ij)
     return nhits, noqhits, x0ij, y0ij, z0ij, q0ij
-
-event_df_fast = events_summary
