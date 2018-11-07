@@ -7,109 +7,92 @@ import pandas            as pd
 #    Tables definitions
 #---------------------------
 
-EventList = collections.namedtuple('EventList', ['event', 'peak'])
+#EventList     = collections.namedtuple('EventList', ['event', 'peak'])
 
-etable_names = ['event', 'peak', 'loc', 'nslices', 'nhits', 'noqslices', 'noqhits',
-                'sid', 'hid', 'time',
-                's1e', 't0', 'rmax', 'zmin', 'zmax',
-                'x0', 'y0', 'z0', 'q0', 'e0',
-                'x' , 'y' , 'z' , 'q' , 'e' ]
+#EventFullList = collections.namedtuple('EventFullList', ['event', 'peak', 'nslices', 'nhits'])
 
-edf_names    = ['event', 'peak', 'loc', 'nslices', 'nhits', 'noqslices', 'noqhits',
-                'time', 's1e', 't0', 'rmax', 'zmin', 'zmax',
-                'x0', 'y0', 'z0', 'q0', 'e0',
-                'x', 'y', 'z', 'q', 'e']
+event_nints = 8
+event_names = ['event', 'peak', 'location', 'nslices', 'nhits', 'noqslices', 'noqhits', 'time',
+               's1e', 't0', 'rmax', 'zmin', 'zmax',
+               'x0', 'y0', 'z0', 'q0', 'e0',
+               'x', 'y', 'z', 'q', 'e']
 
-ETable = collections.namedtuple('ETable', etable_names)
+slice_nints = 5
+slice_names = ['event', 'peak', 'slice', 'nhits', 'noqhits',
+               'rmax', 'z0', 'q0', 'e0', 'q' , 'e' ]
 
-ETuple = collections.namedtuple('ETuple', edf_names)
+hit_bints = 5
+hit_names = ['event', 'peak', 'slice', 'nhits', 'noqhits',
+                    'x0', 'y0', 'z0', 'q0', 'e0', 'q', 'e']
 
-stable_names = ['event', 'peak', 'slice', 'nhits',
-                'rmax',
-                'x0', 'y0', 'z0', 'q0', 'e0',
-                'x' , 'y'       , 'q' , 'e' ]
+class Table:
 
-STable = collections.namedtuple('STable', stable_names)
+    def __init__(self, names, nints = 0):
+        self.nvars = len(names)
+        self.names = names
+        self.nints = nints
 
-htable_names = ['event', 'peak', 'slice', 'nsipm',
-                'x0', 'y0', 'z0', 'q0', 'e0', 'q', 'e']
+    def size(self):
+        name0 = self.names[0]
+        val = getattr(self, name0)
+        if (type(val) != np.ndarray): return 1
+        return len(val)
+
+    def zeros(self, size):
+        for i in range(self.nints):
+            dat = 0  if size <=1 else np.zeros(size, dtype = int)
+            setattr(self, self.names[i], dat )
+        for i in range(self.nints, self.nvars):
+            dat = 0. if size <=1 else np.zeros(size, dtype = float)
+            setattr(self, self.names[i], dat )
+        return
+
+    def __str__(self):
+        ss = ''
+        for name in self.names:
+            ss += ' ' + name  + ': ' + str(getattr(self, name))+', '
+        return ss
 
 
-HTable = collections.namedtuple('HTable', htable_names)
+def event_table(size):
+    etab = Table(event_names, event_nints)
+    etab.zeros(size)
+    return etab
 
-#------------------------------------
-#   Utilities for tables
-#------------------------------------
 
-def _table(size, nint, ntot):
-    items = [np.zeros(size, dtype = int) for i in range(nint)]
-    items += [np.zeros(size) for i in range(nint, ntot)]
-    return items
+def set_table(table_origen, eindex, table):
+    size = table_origen.size()
+    for name in table.names:
+        getattr(table, name) [eindex: eindex + size] = getattr(table_origen, name)
+    return eindex + size
 
-def create_event_table(size):
-    return ETable(*_table(size, 10, len(etable_names)))
 
-def create_slice_table(size):
-    return STable(*_table(size, 4, len(stable_names)))
-
-def create_hit_table(size):
-    return HTable(*_table(size, 4, len(htable_names)))
-
-def df_from_table(tab, names):
+def df_from_table(table):
     df = {}
-    for name in names:
-        df[name] = getattr(tab, name)
+    for name in table.names:
+        df[name] = getattr(table, name)
     return pd.DataFrame(df)
 
-def df_from_etable(tab):
-    return df_from_table(tab, edf_names)
 
-def df_from_stable(tab):
-    return df_from_table(tab, stable_names)
-
-def df_from_htable  (tab):
-    return df_from_table(tab, htable_names)
-
-def _etable_set(etable, etup, eindex):
-
-    for name in edf_names:
-         getattr(etable, name) [eindex] = getattr(etup, name)
-    eindex += 1
-    return eindex
-    #return eindex+=1
-
-    etable.event [eindex] = etup.event
-    etable.peak  [eindex] = etup.peak
-    etable.loc   [eindex] = etup.loc
-
-    etable.time [eindex] = etup.time
-    etable.s1e  [eindex] = etup.s1e
-    etable.t0   [eindex] = etup.t0
-
-    etable.nslices [eindex] = etup.nslices
-    etable.nhits   [eindex] = etup.nhits
-    etable.noqhits [eindex] = etup.noqhits
-
-    etable.rmax [eindex] = etup.rmax
-    etable.zmin [eindex] = etup.zmin
-    etable.zmax [eindex] = etup.zmax
-
-    etable.x0 [eindex] = etup.x0
-    etable.y0 [eindex] = etup.y0
-    etable.z0 [eindex] = etup.z0
-    etable.q0 [eindex] = etup.q0
-    etable.e0 [eindex] = etup.e0
-
-    etable.x [eindex] = etup.x
-    etable.y [eindex] = etup.y
-    etable.z [eindex] = etup.z
-    etable.q [eindex] = etup.q
-    etable.e [eindex] = etup.e
-
-    eindex += 1
-    return eindex
+#-----------------------------
+# Generic hits code
+#-----------------------------
 
 def event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij):
+    """ compute the average point position and total charge and energy of
+    an event-peak
+    inputs:
+        e0i      : (array) raw energy per slice
+        z0i      : (array) z position of the slices
+        x0ij     : (array) x position of the hits
+        y0ij     : (array) y position of the hits
+        z0ij     : (array) z position of the hits
+        q0ij     : (array) raw charge of the hits
+    returns:
+        x, y, z  : (float, float, float) average position
+        q, e     : (float, float)        total charge and energy
+
+    """
 
     e0 = np.sum(e0i)
     if (e0 <= 1.): e0 = 1.
@@ -123,12 +106,31 @@ def event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij):
     #print('x, y, z, q, e ', x0, y0, z0, q0, e0)
     return x0, y0, z0, q0, e0
 
-def calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate):
+
+def calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq=True):
+    """ compute calibrated hits
+    inputs:
+        e0i      : (array) raw energy per slice
+        z0i      : (array) z position of the slices
+        x0ij     : (array) x position of the hits
+        y0ij     : (array) y position of the hits
+        z0ij     : (array) z position of the hits
+        q0ij     : (array) raw charge of the hits
+        calibrate: (function) calibrate function
+        calq     : (bool)  calibrate or not the charge (default = True)
+    returns:
+        noqslices: (int)   number of slices without charge
+        ei       : (array) corrected energy per slice
+        eij      : (array) corrected energy per slice and hit
+        qij      : (array) corrected charge per slice and hit
+    """
 
     nslices = len(z0i)
     nhits = len(z0ij)
     eones = np.ones(nhits)
     fij, qij   = calibrate(x0ij, y0ij, z0ij, None, eones, q0ij)
+    if (not calq):
+        qij = q0ij
 
     selslices = selection_slices_by_z(z0ij, z0i)
 
@@ -157,19 +159,34 @@ def calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate):
 
 
 def max_radius_hit(x0ij, y0ij):
+    """ returns the maximum radius of the hits
+    inputs:
+        x0ij : (array) x position of the hits
+        y0ij : (array) y position of the hits
+    returns:
+        rmax : (float) the maximum radius of the hits
+    """
     r2 = x0ij*x0ij + y0ij*y0ij
     rmax = np.max(r2)
     rmax = np.sqrt(rmax)
     #print('max radius ', rmax)
     return rmax
 
+
 def zrange(z0i):
+    """ return the range of the z values minimum and maximum
+    inputs:
+        z0i       :  (array) z positions of the slices
+    returns:
+        zmin, zmax:  (float, float) z min and max
+    """
     return np.min(z0i), np.max(z0i)
 
 #--------------------------------------------
 #   Utilities for selection of slices or sipms
 #--------------------------------------------
 
+"""
 def selection_slices(nzs, nsipms):
     def _slice(i):
         sx = np.array(nsipms*nzs*[False])
@@ -185,6 +202,8 @@ def selection_sipms(nzs, nsipms):
             sx[i*nzs+k] = True
         return sx
     return [_slice(i) for i in range(nsipms)]
+
+"""
 
 def selection_slices_by_z(zij, zi):
     sels = [zij == izi for izi in zi]

@@ -4,61 +4,89 @@ import pandas            as pd
 
 import invisible_cities.io.pmaps_io        as pmio
 
-DFpmap = collections.namedtuple('DFpmaps', ['s1', 's2', 's2i', 's1pmt', 's2pmt'])
+#DFpmap = collections.namedtuple('DFpmaps', ['s1', 's2', 's2i', 's1pmt', 's2pmt'])
+
+DFpmap = collections.namedtuple('DFpmaps', ['s1', 's2', 's2i'])
+
 
 #----------------------------------------
 # Utilities to deal with pmaps-dataframes
 #-------------------------------------
 
-
 def get_pmaps(filename, mode = ''):
     if (mode == 'gd'):
         hdf = pd.HDFStore(filename)
-        dat = [hdf['s1'], hdf['s2'], hdf['s2si'], hdf['s1pmt'], hdf['s2pmt']]
+#        dat = [hdf['s1'], hdf['s2'], hdf['s2si'], hdf['s1pmt'], hdf['s2pmt']]
+        dat = (hdf['s1'], hdf['s2'], hdf['s2si'])
         return DFpmap(*dat)
-    dat = pmio.load_pmaps_as_df(filename)
-    return DFpmap(*dat)
+    s1, s2, s2i, _, _  = pmio.load_pmaps_as_df(filename)
+    return DFpmap(s1, s2, s2i)
 
-#def get_pmaps(filename):
-#    return DFpmap(*pmio.load_pmaps_as_df(filename))
 
-def pmaps_event_list(dfs):
-    s1events = set(dfs.s1.event)
-    s2events = set(dfs.s2.event)
-    xevents = s1events.union(s2events)
-    return xevents
+def nevents(pmaps):
+    nevents = len(np.unique(pmaps.s2.event))
+    return nevents
 
-def pmaps_get_event(dfs, event):
-    pm = DFpmap(dfs.s1   [dfs.s1   .event == event],
-                dfs.s2   [dfs.s2   .event == event],
-                dfs.s2i  [dfs.s2i  .event == event],
-                dfs.s1pmt[dfs.s1pmt.event == event],
-                dfs.s2pmt[dfs.s2pmt.event == event])
+
+def neventpeaks(pmaps):
+    nepks = len(pmaps.s2.groupby(['event', 'peak']))
+    return nepks
+
+
+def events_1s1(pmaps):
+    ss1 = pmaps.s1
+    evts = np.unique(ss1.groupby('event').filter(lambda x: len(np.unique(x['peak'])) == 1)['event'])
+    return evts
+
+
+def filter_1s1(pmaps):
+    evts = events_1s1(pmaps)
+    tsel = np.isin(pmaps.s1 .event.values, evts)
+    ssel = np.isin(pmaps.s2 .event.values, evts)
+    hsel = np.isin(pmaps.s2i.event.values, evts)
+    return DFpmap(pmaps.s1[tsel], pmaps.s2[ssel], pmaps.s2i[hsel])
+
+
+def get_event(pmaps, event):
+    s1, s2, s2i  = pmaps
+    pm = DFpmap(s1  [s1 .event == event],
+                s2  [s2 .event == event],
+                s2i [s2i.event == event])
     return pm
 
-def pmap_npeaks(pm):
-    ns1 = len(set(pm.s1.peak))
-    ns2 = len(set(pm.s2.peak))
-    return ns1, ns2
 
-def pmap_times(pm, s0_peak = 0, s2_peak = 0):
-    t0 = peak_time(pm.s1[pm.s1.peak == s0_peak])
-    t1 = peak_time(pm.s2[pm.s2.peak == s2_peak])
-    return t0, t1, t1-t0
+def get_eventpeak(pmaps, event, peak):
+    s1, s2, s2i  = pmaps
+    pm = DFpmap(s1  [ s1 .event == event],
+                s2  [(s2 .event == event) & (s2 .peak == peak)],
+                s2i [(s2i.event == event) & (s2i.peak == peak)])
+    return pm
 
-def peak_time(peak):
-    return 1.e-3*np.sum(peak.time*peak.ene)/np.sum(peak.ene)
 
-def peak_time_width(peak):
-    t0, ti = np.min(peak.time), np.max(peak.time)
-    return t0, ti, ti-t0
+def event_iterator(pmaps):
+    s1, s2, s2i  = pmaps
 
-def pmap_hits(pm, s0_peak=0, s2_peak=0, vdrift = 1.):
-    t0, t1, dt = pmap_times(pm, s0_peak, s2_peak)
-    si = pm.s2i[pm.s2i.peak == s2i_peak]
+    s1groups     = s1 .groupby('event')
+    s2groups     = s2 .groupby('event')
+    s2igroups    = s2i.groupby('event')
 
-def pmap_slices(pm):
-    nsipms = len(np.unique(pm.s2i.nsipm))
-    nzs    = len(pm.s2.time)
-    #print('nslices, nsipms', nzs, nsipms)
-    return nzs, nsipms
+    for evt, s2item in s2groups:
+        s1item  = s1groups .get_group(evt)
+        s2iitem = s2igroups.get_group(evt)
+        ipmap = DFpmap(s1item, s2item, s2iitem)
+        yield (iepeak, ipmap)
+
+
+def eventpeak_iterator(pmaps):
+    s1, s2, s2i  = pmaps
+
+    s1groups     = s1 .groupby('event')
+    s2groups     = s2 .groupby(['event', 'peak'])
+    s2igroups    = s2i.groupby(['event', 'peak'])
+
+    for iepeak, s2item in s2groups:
+        evt = iepeak[0]
+        s1item  = s1groups .get_group(evt)
+        s2iitem = s2igroups.get_group(iepeak)
+        ipmap = DFpmap(s1item, s2item, s2iitem)
+        yield (iepeak, ipmap)

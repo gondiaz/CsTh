@@ -8,6 +8,7 @@ import pandas            as pd
 
 import krcal.dev.corrections               as corrections
 import csth .utils.hpeak_tables            as hptab
+import csth .utils.pmaps_functions         as pmapsf
 
 Q0MIN  = 6.
 VDRIFT = 1.
@@ -15,113 +16,85 @@ CALQ   = True
 
 def events_summary(pmaps, runinfo, loc, xpos, ypos, calibrate, q0min = Q0MIN, vdrift = VDRIFT, calq = CALQ):
 
-    elist = event_list(pmaps)
-    evts, npks  = elist
+    ntotal    = pmapsf.nevents(pmaps)
+    spmaps    = pmapsf.filter_1s1(pmaps)
+    naccepted = pmapsf.nevents(spmaps)
 
-    size = int(np.sum(npks))
-    etab = hptab.create_event_table(size)
+    nepks     = pmapsf.neventpeaks(spmaps)
+    etab      = hptab.event_table(nepks)
 
     eindex = 0
-    for evt, npk  in zip(evts, npks):
-        for ipk in range(npk):
-            esum = event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos, q0min, vdrift, calq)
+    for epk, pmap in pmapsf.eventpeak_iterator(spmaps):
+        evt, ipk      = epk
 
-            eindex = hptab._etable_set(etab, esum, eindex)
+        esum          = event_summary(pmap, calibrate, xpos, ypos, q0min, vdrift, calq)
+        timestamp     = runinfo[runinfo.evt_number == evt].timestamp.values[0]
 
-    edf = hptab.df_from_etable(etab)
+        esum.location = loc
+        esum.time     = timestamp
+
+        eindex = hptab.set_table(esum, eindex, etab)
+
+    edf = hptab.df_from_table(etab)
     return edf
 
-def event_list(pmaps):
 
-    s1, s2, s2i = pmaps.s1, pmaps.s2, pmaps.s2i
-
-    evts = np.unique(s1.event)
-    evts = [evt for evt in evts if len(np.unique(s1.peak[s1.event == evt])) == 1]
-    npks = [len(np.unique(s2.peak[s2.event == evt])) for evt in evts]
-
-    #print('event ', evts)
-    #print('peaks ', npks)
-    return hptab.EventList(evts, npks)
-
-
-def event_summary(pmaps, runinfo, evt, ipk, loc, calibrate, xpos, ypos,
+def event_summary(pmap, calibrate, xpos, ypos,
                   q0min = Q0MIN, vdrift = VDRIFT, calq = CALQ):
 
-    s1, s2, s2i = pmaps.s1, pmaps.s2, pmaps.s2i
+    esum = hptab.event_table(1)
 
-    nslices, nhits      = 0, 0
-    noqslices, noqhits  = 0, 0
-    time                = 0
-    s1e, t0             = 0, 0
-    rmax, zmin, zmax    = 0, 0, 0,
-    x0, y0, z0, q0, e0  = 0, 0, 0, 0, 0
-    x, y, z, q, e       = 0, 0, 0, 0, 0
+    s1, s2, s2i               = pmap
 
-    rsel                 = runinfo.evt_number == evt
-    tsel                 = (s1.event == evt)  & (s1.peak == 0)
-    ssel                 = (s2.event == evt)  & (s2.peak == ipk)
-    hsel                 = (s2i.event == evt) & (s2i.peak == ipk)
+    evt                       = np.unique(s2.event)[0]
+    ipk                       = np.unique(s2.peak)[0]
+    esum.event, esum.peak     = evt, ipk
 
-    time          = event_timestamp(runinfo[rsel])
-    s1e, t0       = event_s1_info(s1[tsel])
+    s1e, t0                   = event_s1_info(s1)
+    esum.s1e, esum.t0         = s1e, t0
 
-    nslices, z0i, e0i       = event_slices(s2[ssel], t0, vdrift)
-    if (nslices <= 0):
-        #return _result()
-        esum = hptab.ETuple(evt, ipk, loc, nslices, nhits, noqslices, noqhits,
-                            time, s1e, t0, rmax, zmin, zmax,
-                            x0, y0, z0, q0, e0,
-                            x, y, z, q, e)
-        #print(esum)
-        return esum
+    nslices, z0i, e0i         = event_slices(s2, t0, vdrift)
+    esum.nslices              = nslices
+    if (nslices <= 0): return esum
 
-    nhits, noqhits, x0ij, y0ij, z0ij, q0ij = event_hits(s2i[hsel], z0i, xpos, ypos, q0min)
-    if (nhits <= 0):
-        #return _result()
-        esum = hptab.ETuple(evt, ipk, loc, nslices, nhits, noqslices, noqhits,
-                            time, s1e, t0, rmax, zmin, zmax,
-                            x0, y0, z0, q0, e0,
-                            x, y, z, q, e)
-        #print(esum)
-        return esum
+    nhits, noqhits, x0ij, y0ij, z0ij, q0ij = event_hits(s2i, z0i, xpos, ypos, q0min)
+    esum.nhits, esum.noqhits  = nhits, noqhits
+    if (nhits <= 0):   return esum
 
-    x0, y0, z0, q0, e0       = hptab.event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij)
+    x0, y0, z0, q0, e0        = hptab.event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij)
+    esum.x0, esum.y0, esum.z0 = x0, y0, z0
+    esum.q0, esum.e0          = q0, e0
 
-    rmax                     = hptab.max_radius_hit(x0ij, y0ij)
+    rmax                      = hptab.max_radius_hit(x0ij, y0ij)
+    esum.rmax = rmax
 
-    zmin, zmax               = hptab.zrange(z0i)
+    zmin, zmax                = hptab.zrange(z0i)
+    esum.zmin, esum.zmax      = zmin, zmax
 
-    noqslices, ei, qij, eij  = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq)
+    noqslices, ei, qij, eij   = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq)
+    esum.noqslices            = noqslices
 
-    x , y ,  z, q , e        = hptab.event_eqpoint(ei , z0i, x0ij, y0ij, eij)
+    x , y ,  z, q , e         = hptab.event_eqpoint(ei , z0i, x0ij, y0ij, eij)
+    esum.x, esum.y, esum.z    = x, y, z
+    esum.q, esum.e            = z, e
 
-    #enum = _result()
-    esum = hptab.ETuple(evt, ipk, loc, nslices, nhits, noqslices, noqhits,
-                    time, s1e, t0, rmax, zmin, zmax,
-                    x0, y0, z0, q0, e0,
-                    x, y, z, q, e)
+    # print(esum)
     return esum
 
 
-def get_event_hits(pmaps, evt, ipk, calibrate, xpos, ypos, q0min = Q0MIN, vdrift = VDRIFT, calq = CALQ):
+def get_event_hits(pmap, calibrate, xpos, ypos, q0min = Q0MIN, vdrift = VDRIFT, calq = CALQ):
 
-    s1, s2, s2i = pmaps.s1, pmaps.s2, pmaps.s2i
+    s1, s2, s2i  = pmap
 
-    tsel                 = (s1.event == evt)  & (s1.peak == 0)
-    ssel                 = (s2.event == evt)  & (s2.peak == ipk)
-    hsel                 = (s2i.event == evt) & (s2i.peak == ipk)
+    s1e, t0      = event_s1_info(s1)
 
-    s1e, t0                 = event_s1_info(s1[tsel])
+    nslices, z0i, e0i  = event_slices(s2, t0, vdrift)
+    if (nslices <= 0): return None
 
-    nslices, z0i, e0i       = event_slices(s2[ssel], t0, vdrift)
-    if (nslices <= 0):
-        return None
+    nhits, noqhits, x0ij, y0ij, z0ij, q0ij = event_hits(s2i, z0i, xpos, ypos, q0min)
+    if (nhits <= 0): return None
 
-    nhits, noqhits, x0ij, y0ij, z0ij, q0ij = event_hits(s2i[hsel], z0i, xpos, ypos, q0min)
-    if (nhits <= 0):
-        return None
-
-    noqslices, ei, qij, eij           = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq)
+    noqslices, ei, qij, eij  = hptab.calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq)
 
     return x0ij, y0ij, z0ij, eij, qij
 
@@ -136,12 +109,6 @@ def event_s1_info(s1):
     #print('time', time)
     return s1e, t0
 
-
-def event_timestamp(runinfo):
-
-    stime                 = runinfo.timestamp.values[0]
-    #print('time', stime)
-    return stime
 
 def event_slices(s2, t0, vdrift = VDRIFT):
 
