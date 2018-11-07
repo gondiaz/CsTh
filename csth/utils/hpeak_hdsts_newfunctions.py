@@ -45,10 +45,6 @@ def event_summary(hits, calibrate, q0min = Q0MIN, calq = CALQ):
     esum.nhits, esum.noqhits  = nhits, noqhits
     if (nhits <= 0):   return esum
 
-    s1e, t0, timestamp        = event_s1_info(hits)
-    esum.s1e, esum.t0         = s1e, t0
-    esum.time                 = timestamp
-
     x0, y0, z0, q0, e0      = hptab.event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij)
     esum.x0, esum.y0, esum.z0 = x0, y0, z0
     esum.q0, esum.e0          = q0, e0
