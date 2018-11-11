@@ -13,17 +13,15 @@ import pandas            as pd
 
 event_nints = 8
 event_names = ['event', 'peak', 'location', 'nslices', 'nhits', 'noqslices', 'noqhits', 'time',
-               's1e', 't0', 'rmax', 'zmin', 'zmax',
+               's1e', 't0', 'rmax', 'rbase', 'zmin', 'zmax',
                'x0', 'y0', 'z0', 'q0', 'e0',
-               'x', 'y', 'z', 'q', 'e']
+               'x', 'y', 'z', 'q', 'e', 'qc', 'ec']
 
-slice_nints = 5
-slice_names = ['event', 'peak', 'slice', 'nhits', 'noqhits',
-               'rmax', 'z0', 'q0', 'e0', 'q' , 'e' ]
+slice_nints = 2
+slice_names = ['event', 'peak', 'z0', 'q0', 'e0', 'q' , 'e' ]
 
-hit_bints = 5
-hit_names = ['event', 'peak', 'slice', 'nhits', 'noqhits',
-                    'x0', 'y0', 'z0', 'q0', 'e0', 'q', 'e']
+hit_nints   = 2
+hit_names   = ['event', 'peak', 'x0', 'y0', 'z0', 'q0', 'e0', 'q', 'e']
 
 class Table:
 
@@ -58,6 +56,18 @@ def event_table(size):
     etab = Table(event_names, event_nints)
     etab.zeros(size)
     return etab
+
+
+def slice_table(size):
+    stab = Table(slice_names, slice_nints)
+    stab.zeros(size)
+    return stab
+
+
+def hit_table(size):
+    htab = Table(hit_names, hit_nints)
+    htab.zeros(size)
+    return htab
 
 
 def set_table(table_origen, eindex, table):
@@ -107,8 +117,79 @@ def event_eqpoint(e0i, z0i, x0ij, y0ij, q0ij):
     return x0, y0, z0, q0, e0
 
 
-def calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq=True):
-    """ compute calibrated hits
+def hits_energy(e0i, z0i, z0ij, q0ij, ceij = None, cqij = None):
+    """ share energy between hits and correct it by a factor
+    inputs:
+        e0i      : (array) energy per slice
+        z0i      : (array) z position of the slices
+        z0ij     : (array) z position of the hits
+        q0ij     : (array) charge of the hits
+        ceij     : (array) energy correction factor per hit (default 1.)
+        cqij     : (array) cahrge correction factor per hit (default 1.)
+    returns:
+        ei       : (array) corrected energy per slice
+        qi       : (array) charge por slice
+        eij      : (array) energy per hit
+        qij      : (array) energy per hit
+    """
+    nslices = len(z0i)
+    nhits   = len(z0ij)
+
+    qij = q0ij * cqij if cqij is not None else q0ij * 1.
+
+    selslices = selection_slices_by_z(z0ij, z0i)
+
+    qi  = np.array([np.sum(qij[sel]) for sel in selslices])
+    eij = np.ones(nhits)
+    qi [qi <= 1.] = 1.
+    for k, kslice in enumerate(selslices):
+        eij[kslice] = qij[kslice] * e0i[k]/qi[k]
+
+    if (ceij is not None): eij = eij * ceij
+
+    ei = np.array([np.sum(eij[sel]) for sel in selslices])
+
+    return ei, qi, eij, qij
+
+def slices_energy(e0i, ei):
+    """ correct energy per slices without hits
+    inputs:
+        e0i     : (array) raw energy per slice
+        ei      : (array) corrected energy per slice
+    returns:
+        ei      : (array) corrected energy per slice (including slices with no hits)
+        enoq    : (float) corrected energy in the slices with no hits
+        nqslices: (int)   number of slices without hits
+    """
+
+    e0i [e0i <= 1] = 1.
+    fi             = ei/e0i
+    selnoq         = fi <= 0.
+    noqslices      = np.sum(selnoq)
+    if (noqslices > 0):
+        fmed           = np.mean(fi[~selnoq])
+        ei [selnoq]    = fmed * e0i [selnoq]
+    enoq = np.sum(ei[selnoq])
+
+    return ei, enoq, noqslices
+
+def calibration_factors(x, y, z, calibrate):
+
+    nhits = len(z)
+    ones = np.ones(nhits)
+
+    #ce0, cq0 = calibrate(x, y, None, None, ones, ones)
+    ce , cq  = calibrate(x, y, z   , None, ones, ones)
+
+    #ce0 [ce0 <= 0.] = 1.
+    #fe, fq  = ce, cq0*ce/ce0
+    fe, fq  = ce, cq
+
+    return fe, fq
+
+"""
+def calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate):
+    compute calibrated hits
     inputs:
         e0i      : (array) raw energy per slice
         z0i      : (array) z position of the slices
@@ -121,9 +202,10 @@ def calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq=True):
     returns:
         noqslices: (int)   number of slices without charge
         ei       : (array) corrected energy per slice
+        qi       : (array) corrected charge por slice
         eij      : (array) corrected energy per slice and hit
         qij      : (array) corrected charge per slice and hit
-    """
+
 
     nslices = len(z0i)
     nhits = len(z0ij)
@@ -155,22 +237,29 @@ def calibrate_hits(e0i, z0i, x0ij, y0ij, z0ij, q0ij, calibrate, calq=True):
     #print('eij ', len(eij), eij)
     #print('qij ', len(qij), qij)
 
-    return noqslices, ei, eij, qij
+    return noqslices, ei, qi, eij, qij
+"""
 
-
-def max_radius_hit(x0ij, y0ij):
-    """ returns the maximum radius of the hits
+def radius(x0ij, y0ij, x0, y0):
+    """ returns the maximum radius respect the origin and (x0, y0) or base radius
     inputs:
-        x0ij : (array) x position of the hits
-        y0ij : (array) y position of the hits
+        x0ij  : (array) x position of the hits
+        y0ij  : (array) y position of the hits
+        x0    : (float) x center
+        y0    : (float) y center
     returns:
-        rmax : (float) the maximum radius of the hits
+        rmax  : (float) the maximum radius of the hits (repect origin)
+        rbase : (float) the maximun radius respect (x0, y0) or base radius
     """
-    r2 = x0ij*x0ij + y0ij*y0ij
-    rmax = np.max(r2)
-    rmax = np.sqrt(rmax)
-    #print('max radius ', rmax)
-    return rmax
+    def _rad(x, y):
+        r2 = x*x + y*y
+        rmax = np.sqrt(np.max(r2))
+        return rmax
+    rmax  = _rad( x0ij     , y0ij      )
+    rbase = _rad( x0ij - x0, y0ij - y0 )
+
+    #print('max radius, base radius ', rmax, rbase)
+    return rmax, rbase
 
 
 def zrange(z0i):

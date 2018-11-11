@@ -87,6 +87,9 @@ def eventpeak_iterator(pmaps):
     for iepeak, s2item in s2groups:
         evt = iepeak[0]
         s1item  = s1groups .get_group(evt)
-        s2iitem = s2igroups.get_group(iepeak)
+        try:
+            s2iitem = s2igroups.get_group(iepeak)
+        except:
+            continue
         ipmap = DFpmap(s1item, s2item, s2iitem)
         yield (iepeak, ipmap)
