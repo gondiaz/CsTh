@@ -37,24 +37,7 @@ def ratio(tab, pair_names, nbins=100):
         tsel = abs(v1) >0
         hst.hist(v2[tsel]/v1[tsel], nbins, canvas = c(2*i+2), xylabels=(n2+'/'+n1, ''))
     return
-"""
-def plot_vs_z(hits, q0min = 0.):
-    c = hst.Canvas(5, 2)
-    sel = hits.q0 > q0min
-    hst.scatter(hits.z0[sel], hits.q0[sel], canvas=c(1), alpha=0.5, xylabels=('z (mm)', 'q0 (pes)'))
-    hst.scatter(hits.z0[sel], hits.q [sel], canvas=c(2), alpha=0.5, xylabels=('z (mm)', 'q (pes)'))
-    hst.scatter(hits.z0[sel], hits.e0[sel], canvas=c(3), alpha=0.5, xylabels=('z (mm)', 'e0  (pes)'))
-    hst.scatter(hits.z0[sel], hits.e[sel] , canvas=c(4), alpha=0.5, xylabels=('z (mm)', 'e '))
-    hst.scatter(hits.z0[sel], hits.x0[sel], canvas=c(5), alpha=0.2,
-                c=hits.e[sel], s= 0.1*hits.e[sel], xylabels=('z (mm)', 'x  (mm)'))
-    hst.scatter(hits.z0[sel], hits.y0[sel], canvas=c(6), alpha=0.1,
-                c=hits.e[sel], s= 0.1*hits.e[sel], xylabels=('z (mm)', 'y (mm)'))
-    hst.scatter(hits.z0[sel], hits.q[sel]/hits.q0[sel], canvas=c(7), alpha=0.5, xylabels=('z (mm)', 'q/q0'))
-    hst.scatter(hits.z0[sel], hits.e[sel]/hits.e0[sel] , canvas=c(8), alpha=0.5, xylabels=('z (mm)', 'e/e0'))
-    plt.tight_layout()
-    return
-"""
-
+    
 def graph_event(x, y, z, ene, scale = 0.1, comment = ''):
     c = hst.Canvas(2, 2)
     from mpl_toolkits.mplot3d import Axes3D
