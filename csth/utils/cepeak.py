@@ -45,8 +45,6 @@ class ATable:
             #dic[name] = dat
         #self.df = pd.DataFrame(dic)
 
-    def __len__(self):
-        return self.index
 
     def set(self, obj, loc, size = 1):
         index = self.index
@@ -57,6 +55,11 @@ class ATable:
             #self.df[name].values[index : index + size] = getattr(obj, name)
         self.index += size
         return
+
+
+    def __len__(self):
+        return self.index
+
 
 
     def __str__(self):
@@ -118,6 +121,7 @@ class CepkTable:
                            nints = CepkTable.inints )
 
     def set(self, cepk, loc):
+        #print('cepk size : ', 1, cepk.nslices, cepk.nhits)
         self.etab.set(cepk, loc, size = 1)
         self.stab.set(cepk, loc, size = cepk.nslices)
         self.htab.set(cepk, loc, size = cepk.nhits)
