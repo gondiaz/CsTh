@@ -84,11 +84,16 @@ class ESum (ATable):
 
     inints = 2
     inames = ['event', 'peak']
-    enints =  6
-    enames = ['location', 'nslices', 'nhits', 'noqslices', 'noqhits', 'time',
+    enints =  5
+    enames = ['location', 'nslices', 'nhits', 'noqslices', 'time',
               's1e', 't0', 'rmax', 'rsize', 'zmax', 'zsize',
               'x0', 'y0', 'z0', 'e0', 'q0', 'e0h', 'q0h',
-              'x' , 'y' , 'z' , 'q' , 'e' , 'eh' , 'qh']
+              'x' , 'y' , 'z' , 'q' , 'e' , 'eh' , 'qh',
+              'xu', 'yu', 'zu',
+              'e0f', 'e0b', 'ef', 'eb',
+              'e1', 'x1', 'y1', 'z1',
+              'e2', 'x2', 'y2', 'z2',
+              'eblob1', 'eblob2', 'd12']
 
     def __init__(self, size = 1):
         super().__init__(ESum.inames, ESum.enames, size = size,
@@ -147,71 +152,6 @@ def cepks_from_hdf(input_filename):
     edf, sdf, hdf  = hd['cepk_evt'], hd['cepk_slc'], hd['cepk_hit']
     return (edf, sdf, hdf)
 
-
-#def df_zeros(names, nints, size):
-#    dat = {}
-#    for i, name in enumerate(names):
-#        dtype    = int if i < nints else float
-#        dat[name] = np.zeros(size, dtype = dtype)
-#    df = pd.DataFrame(dat)
-#    return df
-#
-# inints = 2
-# inames = ['event', 'peak']
-# enints = 5
-# enames = ['location', 'nslices', 'nhits', 'noqslices', 'noqhits', 'time',
-#                   's1e', 't0', 'rmax', 'rsize', 'zmax', 'zsize',
-#                   'x0', 'y0', 'z0', 'e0', 'q0', 'e0h', 'q0h',
-#                   'x' , 'y' , 'z' , 'q' , 'e' , 'eh' , 'qh']
-#
-# class ESum:
-#
-#     inints = 2
-#     inames = ['event', 'peak']
-#     enints = 5
-#     enames = ['location', 'nslices', 'nhits', 'noqslices', 'noqhits', 'time',
-#               's1e', 't0', 'rmax', 'rsize', 'zmax', 'zsize',
-#               'x0', 'y0', 'z0', 'e0', 'q0', 'e0h', 'q0h',
-#               'x' , 'y' , 'z' , 'q' , 'e' , 'eh' ,
-#
-#     def __init__(self, size = 1, names = inames + enames, nints = inints + enints):
-#         self.index = 0
-#         if (size <= 1):
-#             for i in names: setattr(self, name, 0)
-#         else:
-#             for i, name in enumerate(names):
-#                 dtype    = int if i < nints else float
-#                 dat = np.zeros(size, dtype = dtype)
-#                 setattr(self, name, dat)
-#                 #dic[name] = dat
-#
-#         def set(self, obj, size = 1):
-#             index, names = self.index, self.names
-#             for name in names:
-#                 getattr(self, name)[index : index + size] = getattr(obj, name)
-#                 #self.df[name].values[index : index + size] = getattr(obj, name)
-#             self.index += size
-#             return
-#
-#
-#
-# def esum(size = 1, name = 'esum'):
-#     at =  ATable(name, inames + enames, size = size, nints = inints + enints)
-#     return at
-#
-#
-# def esum_to_hdf(esum, output_filename):
-#     #df = esum.df()
-#     df = esum.df
-#     df = df[df.event > 0]
-#     df.to_hdf(output_filename, key = 'esum', append = True)
-#     return len(df)
-#
-# def esum_from_hdf(input_filename):
-#
-#      hd = pd.HDFStore(input_filename)
-#      esum = hd['esum']
-#      return esum
 
 #-----------------------------
 # Generic hits code
@@ -293,6 +233,75 @@ def radius(xij, yij, x, y):
     #print('max radius, base radius ', rmax, rbase)
     return rmax, rbase
 
+def upoint(zi, xij, yij):
+
+    zu = np.mean(zi)
+    xu = np.mean(np.unique(xij))
+    yu = np.mean(np.unique(yij))
+
+    return xu, yu, zu
+
+
+def eforbackward(e0i, ei, zi):
+
+    zu = np.mean(zi)
+
+    e0b = np.sum(e0i[zi >= zu])
+    e0f = np.sum(e0i[zi <= zu])
+
+    eb = np.sum(ei[zi >= zu])
+    ef = np.sum(ei[zi <= zu])
+
+    #print('ei', ei, np.sum(ei))
+    #print('zi', zi, zu, np.mean(zu))
+    #print('eb', eb, np.sum(ei [zi >= zu]) )
+    #print('ef', ef, np.sum(ei [zi <= zu]) )
+    #print('eb + ef', eb + ef)
+
+
+    return e0f, e0b, ef, eb
+
+
+def naiveblobs(eij, xij, yij, zij, blob_radius = 16.):
+
+    d2 = blob_radius * blob_radius
+
+    zz = zip(eij, xij, yij, zij)
+    zz = sorted(zz, reverse = True)
+
+    def dis(zi, z0):
+        e0, x0, y0, z0 = z0
+        ei, xi, yi, zi = zi
+        dd = (xi-x0) * (xi-x0) + (yi-y0) * (yi-y0) + (zi-z0) * (zi-z0)
+        return dd
+
+    def eblob(zz):
+        z0     = zz[0]
+        ds     = [dis(zi, z0) for zi in zz]
+        eblob  = np.sum([zi[0] for zi, di in zip(zz, ds) if di <= d2])
+        zs     = [zi for zi, di in zip(zz, ds) if di >= d2]
+        #print(' zz ', zz)
+        #print(' z0 ', z0)
+        #print(' ds ', ds)
+        #print(' eb ', eblob)
+        #print(' zs ', zs)
+        return z0, eblob, zs
+
+    epoint1, eblob1, zs = eblob(zz)
+    epoint2, eblob2     = epoint1, 0.
+    if (len(zs) > 0):
+        epoint2, eblob2, _  = eblob(zs)
+
+    #print('epoint1 ', epoint1)
+    #print('epoint2 ', epoint2)
+    d12 = np.sqrt(dis(epoint1, epoint2))
+
+    return epoint1, epoint2, d12, eblob1, eblob2
+
+
+
+
+
 #----------------------------------------
 # Event Summary Table
 #-----------------------------------------
@@ -334,6 +343,21 @@ def esum(cepk, location, s1e, t0, timestamp):
     e0h                     = np.sum(e0i[~selnoq])
     q0h                     = np.sum(q0ij)
     esum.e0h, esum.q0h        = e0h, q0h
+
+    xu, yu, zu                =  upoint(zi, xij, yij)
+    esum.xu, esum.yu, esum.zu = xu, yu, zu
+
+    e0f, e0b, ef, eb      = eforbackward(e0i, ei, zi)
+    esum.e0f, esum.e0b    = e0f, e0b
+    esum.ef , esum.eb     = ef, eb
+
+    ep1, ep2, d12, eb1, eb2 = naiveblobs(eij, xij, yij, zij)
+    e1, x1, y1, z1 = ep1
+    e2, x2, y2, z2 = ep2
+    esum.e1, esum.e2, esum.d12 = e1, e2, d12
+    esum.x1, esum.y1, esum.z1  = x1, y1, z1
+    esum.x2, esum.y2, esum.z2  = x2, y2, z2
+    esum.eblob1, esum.eblob2   = eb1, eb2
 
     x, y, z, e, _        = eqpoint(ei, zi, xij, yij, qij)
     esum.x, esum.y, esum.z  = x, y, z

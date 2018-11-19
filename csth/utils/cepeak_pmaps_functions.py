@@ -3,7 +3,6 @@ import numpy             as np
 import pandas            as pd
 
 import invisible_cities.database.load_db   as db
-from   invisible_cities.io.dst_io          import load_dst
 import krcal.dev.corrections               as corrections
 
 import csth .utils.cepeak           as cpk
@@ -20,7 +19,7 @@ VDRIFT = 1.
 
 def esum(input_filename, output_filename, correction_filename,
             run_number, location,
-            q0min = Q0MIN):
+            q0min = Q0MIN, full = False):
 
     try:
         pmaps, runinfo = data(input_filename)
@@ -29,29 +28,33 @@ def esum(input_filename, output_filename, correction_filename,
 
     calibrate, xpos, ypos = tools(correction_filename, run_number)
 
-    ntotal      = pmaps.nepeaks()
-    esums, cepks = tables(pmaps, q0min = q0min)
+    ntotal       = pmapdf.nepeaks(pmaps)
+    esums, cepks = tables(pmaps, full, q0min = q0min)
 
-    for iloc, pmap in pmaps.epeak_iterator():
+    for iloc, pmap in pmapdf.epeak_iterator(pmaps):
         evt, ipk = iloc
 
         epk   = epeak(pmap, xpos, ypos, q0min)
         if (epk is None): continue
 
         cepk  = cpk.cepeak(epk, calibrate)
-        cepks.set(cepk, iloc)
+        if (full):
+            cepks.set(cepk, iloc)
 
         s1e, t0    = s1_info(pmap.s1)
-        timestamp  = 0 if runinfo is None else runinfo[runinfo.evt_number == evt].timestamp.values[0]
+        timestamp  = runinfo[runinfo.evt_number == evt].timestamp.values[0]
         esum       = cpk.esum(cepk, location, s1e, t0, timestamp)
 
         esums.set(esum, iloc)
 
     esums.to_hdf(output_filename)
-    cepks.to_hdf(output_filename)
-
+    if (full):
+        cepks.to_hdf(output_filename)
     naccepted = len(esums)
-    return (ntotal, naccepted), (esums.df(), cepks.df())
+
+    counters = ( ntotal, naccepted )
+    odata    = ( esums.df(), cepks.df() ) if full else esums.df()
+    return counters, odata
 
 
 def tools(correction_filename, run_number):
@@ -65,10 +68,10 @@ def tools(correction_filename, run_number):
 def data(input_filename):
 
     try:
-        pmaps   = pmapdf.dfpmaps_from_hdf(input_filename)
-        runinfo =        load_dst(input_filename, 'Run', 'events')
+        pmaps    = pmapdf.pmaps_from_hdf(input_filename)
+        runinfo  = pmapdf.runfo_from_hdf(input_filename)
     except:
-        print('Not able to load file : ', input_filename)
+        print('Not able to load input file : ', input_filename)
         raise IOError
 
     print('processing ', input_filename)
@@ -77,13 +80,18 @@ def data(input_filename):
 
     return spmaps, runinfo
 
-def tables(pmaps, q0min = Q0MIN):
+def tables(pmaps, full, q0min = Q0MIN):
 
-    nepks  = pmaps.nepeaks()
+    nepks  = pmapdf.nepeaks(pmaps)
     esums  = cpk.ESum(nepks)
 
-    nhits = np.sum(pmaps.s2i.ene > q0min)
-    cepks = CepkTable(nepks, nhits, nhits)
+    if (not full): return esums, None
+
+    nslices = len(pmaps.s2)
+    nhits   = np.sum(pmaps.s2i.ene > q0min)
+
+    cepks   = CepkTable(nepks, nhits, nhits)
+
     return esums, cepks
 
 
