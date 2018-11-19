@@ -55,7 +55,7 @@ full             = args.full
 #output_directory = f"$IC_DATA" if input_directory == ''
 #correction_filename = f"$IC_DATA/maps/kr_corrections_run{run_number}.h5" if correction_file = ''
 
-#Selected pmaps_gd
+
 #if input_type == 'pmaps':
 ipars   = range(partlim[0], partlim[1] + 1)
 spars  = ["{:04}".format(i) for i in range(partlim[0], partlim[1])]
